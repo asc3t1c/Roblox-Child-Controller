@@ -1,4 +1,5 @@
 # Roblox-Child-Controller
+![](docs/timer.jpg)
 
 ## Overview
 
