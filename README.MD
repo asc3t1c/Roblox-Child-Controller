@@ -38,12 +38,12 @@ How to use
 
 - To block Roblox after some allowed time, run:
 ```
-python script.py block
+python roblox-control.py block
 ```
 It will unblock Roblox domains first, wait your chosen time, then block Roblox fully.
 
 2. To uninstall and clean everything (unblock domains, firewall, restore files, uninstall Roblox app), run:
 ```
-python script.py uninstall
+python roblox-control.py uninstall
 ```
 3. Pressing Ctrl+C during the waiting period will run the uninstall/cleanup before exiting.
