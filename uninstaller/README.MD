@@ -2,7 +2,7 @@
 
 # 🧼 Roblox Cleaner
 
-This tool **fully resets all Roblox-related restrictions and settings** applied by the [Roblox-Child-Controller](https://github.com/yourrepo/Roblox-Child-Controller) or similar parental control scripts. It is designed for **parents only** and is **protected by a password** prompt.
+This tool **fully resets all Roblox-related restrictions and settings** applied by the [Roblox-Child-Controller](https://github.com/asc3t1c/Roblox-Child-Controller) or similar parental control scripts. It is designed for **parents only** and is **protected by a password** prompt.
 
 ---
 
