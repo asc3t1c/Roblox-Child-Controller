@@ -22,6 +22,12 @@ If you or your child no longer need restrictions on Roblox (e.g. domain blocking
 - 🗑️ Deletes leftover Roblox data from local user folders.
 - 🔐 **Password-protected** to prevent child access.
 
+
+- 🔧 Customization
+You can change the password inside the script by modifying this line:
+```
+PASSWORD = "parentonly"
+```
 ---
 
 ## ⚠️ Requirements
