@@ -35,6 +35,7 @@ def unblock_domains(domains):
 def block_domains(domains, block_entries):
     with open(HOSTS_PATH, 'r+') as file:
         lines = file.readlines()
+        file.seek(0, os.SEEK_END)  # Move to end before appending
         for entry in block_entries:
             if entry not in lines:
                 file.write(entry)
@@ -134,10 +135,12 @@ def uninstall_roblox_app():
     try:
         output = subprocess.check_output('wmic product get name', shell=True, text=True)
         for line in output.splitlines():
-            if "Roblox" in line:
-                name = line.strip()
+            name = line.strip()
+            if not name:
+                continue
+            if "Roblox" in name:
                 print(f"🛠️ Uninstalling with WMIC: {name}")
-                subprocess.run(f'wmic product where name="{name}" call uninstall /nointeractive', shell=True)
+                subprocess.run(f'wmic product where name="{name}" call uninstall /nointeractive', shell=True, check=True)
                 found = True
                 break
     except Exception as e:
@@ -196,10 +199,11 @@ def block_everything_and_exit():
     renamed_count = rename_roblox_executables()
     block_roblox_firewall()
     uninstall_roblox_app()
-    remove_roblox_exe_files()  # <-- NEW: Remove any leftover Roblox .exe files
+    remove_roblox_exe_files()
     if renamed_count == 0:
         print("ℹ️ No executables renamed (maybe already blocked). Exiting now.")
-    sys.exit(0)
+    print("🚪 Exiting now.")
+    os._exit(0)  # <-- Force immediate exit here
 
 def handle_ctrl_c(signum, frame):
     print("\n🚫 Ctrl+C detected! Blocking Roblox and uninstalling before exit...")
