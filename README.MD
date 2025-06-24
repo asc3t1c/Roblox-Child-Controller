@@ -1,4 +1,5 @@
-# Roblox-Child-Controller
+# Roblox-Child-Controller 
+### NOTE: ONLY FOR PC's, no VM
 ![](docs/timer.jpg)
 
 ## Overview
