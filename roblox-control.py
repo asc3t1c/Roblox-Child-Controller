@@ -13,8 +13,8 @@ HOSTS_PATH = r"C:\Windows\System32\drivers\etc\hosts"
 REDIRECT_IP = "127.0.0.1"
 DOMAINS = ["www.roblox.com", "roblox.com"]
 BLOCK_ENTRIES = [f"{REDIRECT_IP} {domain}\n" for domain in DOMAINS]
+ROBLOX_URL = "https://www.roblox.com/"
 FIREWALL_RULE_NAME = "Block Roblox Player"
-ROBLOX_APPDATA_REL = r"AppData\Local\Roblox"
 
 def is_admin():
     try:
@@ -23,45 +23,46 @@ def is_admin():
         return False
 
 def unblock_domains(domains):
-    try:
-        with open(HOSTS_PATH, 'r') as file:
-            lines = file.readlines()
-        with open(HOSTS_PATH, 'w') as file:
-            for line in lines:
-                if not any(domain in line for domain in domains):
-                    file.write(line)
-        print(f"✅ Domains unblocked: {', '.join(domains)}")
-    except Exception as e:
-        print(f"❌ Failed to unblock domains: {e}")
+    with open(HOSTS_PATH, 'r') as file:
+        lines = file.readlines()
+    with open(HOSTS_PATH, 'w') as file:
+        for line in lines:
+            if not any(domain in line for domain in domains):
+                file.write(line)
+    print(f"✅ Domains unblocked: {', '.join(domains)}")
+    print(f"🌐 Roblox accessible: {ROBLOX_URL}")
 
 def block_domains(domains, block_entries):
-    try:
-        with open(HOSTS_PATH, 'r+') as file:
-            lines = file.readlines()
-            for entry in block_entries:
-                if entry not in lines:
-                    file.write(entry)
-                    print(f"🚫 Blocked domain: {entry.strip().split()[1]}")
-                else:
-                    print(f"⚠️ Domain already blocked: {entry.strip().split()[1]}")
-        print(f"🔒 Roblox domains blocked.")
-    except Exception as e:
-        print(f"❌ Failed to block domains: {e}")
+    with open(HOSTS_PATH, 'r+') as file:
+        lines = file.readlines()
+        for entry in block_entries:
+            if entry not in lines:
+                file.write(entry)
+                print(f"🚫 Blocked domain: {entry.strip().split()[1]}")
+            else:
+                print(f"⚠️ Domain already blocked: {entry.strip().split()[1]}")
+    print(f"🔒 Roblox blocked: {ROBLOX_URL}")
 
-def find_roblox_executables():
-    user = os.getlogin()
-    base_path = rf"C:\Users\{user}\AppData\Local\Roblox\Versions"
-    executables = []
-    if os.path.exists(base_path):
-        for root, _, files in os.walk(base_path):
-            for file in files:
-                if file == "RobloxPlayerBeta.exe":
-                    executables.append(os.path.join(root, file))
-    return executables
+def block_roblox_firewall():
+    try:
+        roblox_paths = find_roblox_executables()
+        if not roblox_paths:
+            print("ℹ️ No Roblox executables found for firewall blocking.")
+            return
+        for path in roblox_paths:
+            subprocess.run([
+                "netsh", "advfirewall", "firewall", "add", "rule",
+                f"name={FIREWALL_RULE_NAME}",
+                "dir=out", "action=block", f"program={path}",
+                "enable=yes"
+            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            print(f"🔥 Firewall blocked: {os.path.basename(path)}")
+    except Exception as e:
+        print(f"⚠️ Firewall blocking failed: {e}")
 
 def rename_roblox_executables():
-    count = 0
     try:
+        count = 0
         paths = find_roblox_executables()
         if not paths:
             print("ℹ️ No Roblox executables found to rename.")
@@ -76,96 +77,57 @@ def rename_roblox_executables():
                 print(f"⚠️ Already renamed: {os.path.basename(new_path)}")
         if count == 0:
             print("ℹ️ No executables were renamed (already blocked).")
+        return count
     except Exception as e:
         print(f"❌ Rename failed: {e}")
-    return count
+    return 0
 
-def restore_roblox_executables():
-    restored_count = 0
-    try:
-        paths = find_roblox_executables()
-        # Check for .blocked files instead
-        user = os.getlogin()
-        base_path = rf"C:\Users\{user}\AppData\Local\Roblox\Versions"
+def find_roblox_executables():
+    user = os.getlogin()
+    base_path = rf"C:\Users\{user}\AppData\Local\Roblox\Versions"
+    executables = []
+    if os.path.exists(base_path):
         for root, _, files in os.walk(base_path):
             for file in files:
-                if file.endswith(".blocked"):
-                    old_path = os.path.join(root, file)
-                    new_path = old_path[:-8]  # remove ".blocked"
-                    if not os.path.exists(new_path):
-                        os.rename(old_path, new_path)
-                        print(f"✅ Restored executable: {file} -> {os.path.basename(new_path)}")
-                        restored_count += 1
-                    else:
-                        print(f"⚠️ Target file exists, skipping restore: {new_path}")
-        if restored_count == 0:
-            print("ℹ️ No renamed executables found to restore.")
-    except Exception as e:
-        print(f"❌ Restore failed: {e}")
-    return restored_count
-
-def block_roblox_firewall():
-    try:
-        paths = find_roblox_executables()
-        if not paths:
-            print("ℹ️ No Roblox executables found for firewall blocking.")
-            return
-        for path in paths:
-            subprocess.run([
-                "netsh", "advfirewall", "firewall", "add", "rule",
-                f"name={FIREWALL_RULE_NAME}",
-                "dir=out", "action=block", f"program={path}",
-                "enable=yes"
-            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            print(f"🔥 Firewall blocked: {os.path.basename(path)}")
-    except Exception as e:
-        print(f"⚠️ Firewall blocking failed: {e}")
-
-def unblock_roblox_firewall():
-    try:
-        subprocess.run([
-            "netsh", "advfirewall", "firewall", "delete", "rule",
-            f"name={FIREWALL_RULE_NAME}"
-        ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        print("✅ Firewall rules removed.")
-    except Exception as e:
-        print(f"❌ Failed to remove firewall rules: {e}")
+                if file == "RobloxPlayerBeta.exe":
+                    executables.append(os.path.join(root, file))
+    return executables
 
 def kill_roblox_processes():
-    try:
-        subprocess.run('taskkill /f /im RobloxPlayerBeta.exe', shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        subprocess.run('taskkill /f /im RobloxPlayerLauncher.exe', shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        print("🛑 Killed Roblox processes.")
-    except Exception as e:
-        print(f"⚠️ Failed to kill Roblox processes: {e}")
+    procs = ["RobloxPlayerBeta.exe", "RobloxPlayerLauncher.exe"]
+    for proc in procs:
+        try:
+            subprocess.run(['taskkill', '/F', '/IM', proc], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception as e:
+            print(f"⚠️ Could not kill {proc}: {e}")
 
 def remove_roblox_appdata():
     user = os.getlogin()
-    appdata_path = rf"C:\Users\{user}\{ROBLOX_APPDATA_REL}"
-    if os.path.exists(appdata_path):
-        try:
-            shutil.rmtree(appdata_path, onerror=on_rm_error)
-            print(f"🗑️ Removed Roblox AppData: {appdata_path}")
-        except Exception as e:
-            print(f"❌ Failed to remove AppData folder: {e}")
-    else:
-        print("ℹ️ Roblox AppData not found.")
-
-def on_rm_error(func, path, exc_info):
-    import stat
-    if not os.access(path, os.W_OK):
-        os.chmod(path, stat.S_IWUSR)
-        func(path)
-    else:
-        raise
+    appdata_path = rf"C:\Users\{user}\AppData\Local\Roblox"
+    max_attempts = 5
+    for attempt in range(max_attempts):
+        if os.path.exists(appdata_path):
+            try:
+                shutil.rmtree(appdata_path)
+                print(f"🗑️ Removed Roblox AppData: {appdata_path}")
+                return True
+            except Exception as e:
+                print(f"❌ Attempt {attempt+1}: Failed to remove AppData folder: {e}")
+                time.sleep(2)
+        else:
+            print("ℹ️ Roblox AppData folder not found.")
+            return True
+    print("⚠️ Failed to remove Roblox AppData after multiple attempts.")
+    return False
 
 def uninstall_roblox_app():
     print("\n🪑 Starting Roblox Player uninstall...")
-
     kill_roblox_processes()
-    remove_roblox_appdata()
+    if not remove_roblox_appdata():
+        print("⚠️ Proceeding even though AppData folder removal failed.")
 
-    # Try uninstall via WMIC
+    found = False
+
     try:
         output = subprocess.check_output('wmic product get name', shell=True, text=True)
         for line in output.splitlines():
@@ -173,48 +135,50 @@ def uninstall_roblox_app():
                 name = line.strip()
                 print(f"🛠️ Uninstalling with WMIC: {name}")
                 subprocess.run(f'wmic product where name="{name}" call uninstall /nointeractive', shell=True)
+                found = True
                 break
-        else:
-            print("ℹ️ Roblox not found in WMIC list.")
     except Exception as e:
         print(f"⚠️ WMIC uninstall failed: {e}")
 
-    # PowerShell uninstall fallback
     try:
         ps_check = subprocess.run([
-            'powershell', '-Command', 'Get-AppxPackage *Roblox* | Select Name, PackageFullName'
+            'powershell', '-Command', 'Get-Package -Name *Roblox*'
         ], capture_output=True, text=True)
         if "Roblox" in ps_check.stdout:
             print("🛠️ Attempting PowerShell uninstall...")
-            uninstall_ps = subprocess.run([
+            subprocess.run([
                 'powershell', '-Command',
-                'Get-AppxPackage *Roblox* | Remove-AppxPackage'
+                'Get-Package -Name *Roblox* | Uninstall-Package -Force'
             ], capture_output=True, text=True)
-            if uninstall_ps.returncode == 0:
-                print("✅ Roblox app uninstalled via PowerShell.")
-            else:
-                print(f"❌ PowerShell uninstall returned code {uninstall_ps.returncode}")
+            found = True
         else:
-            print("ℹ️ No Roblox packages found in PowerShell.")
+            print("✅ PowerShell: No Roblox packages found (likely already removed).")
     except Exception as e:
         print(f"⚠️ PowerShell uninstall failed: {e}")
 
-def block_everything():
-    block_domains(DOMAINS, BLOCK_ENTRIES)
-    rename_roblox_executables()
-    block_roblox_firewall()
+    if not found:
+        print("🎉 Roblox appears to already be uninstalled. Exiting.")
+        cleanup_and_exit()
 
-def uninstall_everything():
-    unblock_domains(DOMAINS)
-    unblock_roblox_firewall()
-    restore_roblox_executables()
+def block_everything_and_exit():
+    block_domains(DOMAINS, BLOCK_ENTRIES)
+    renamed_count = rename_roblox_executables()
+    block_roblox_firewall()
     uninstall_roblox_app()
+    if renamed_count == 0:
+        print("ℹ️ No executables renamed (maybe already blocked).")
+    cleanup_and_exit()
+
+def cleanup_and_exit():
+    print("👋 Exiting now.")
+    try:
+        sys.exit(0)
+    finally:
+        os._exit(0)
 
 def handle_ctrl_c(signum, frame):
-    print("\n🚫 Ctrl+C detected! Running uninstall before exit...")
-    uninstall_everything()
-    print("✅ Uninstall and cleanup done. Exiting.")
-    sys.exit(0)
+    print("\n🚫 Ctrl+C detected! Blocking Roblox and uninstalling before exit...")
+    block_everything_and_exit()
 
 def console_event_handler(event):
     if event in (
@@ -224,10 +188,9 @@ def console_event_handler(event):
         win32con.CTRL_LOGOFF_EVENT,
         win32con.CTRL_SHUTDOWN_EVENT,
     ):
-        print("\n⚠️ Termination detected! Running uninstall before exit...")
-        uninstall_everything()
-        print("✅ Uninstall and cleanup done. Exiting.")
-        sys.exit(0)
+        print("\n⚠️ Termination detected! Blocking Roblox and uninstalling before exit...")
+        block_everything_and_exit()
+        return True
     return False
 
 def get_wait_time_hours():
@@ -235,13 +198,13 @@ def get_wait_time_hours():
         try:
             hours = float(input("⏳ Enter hours to wait before blocking Roblox (e.g., 3 or 1.5): "))
             if hours <= 0:
-                print("❌ Please enter a positive number.")
+                print("Please enter a positive number.")
                 continue
             return hours
         except ValueError:
             print("❌ Invalid input. Enter a number like 3 or 1.5.")
 
-def main_block():
+def main():
     signal.signal(signal.SIGINT, handle_ctrl_c)
     win32api.SetConsoleCtrlHandler(console_event_handler, True)
 
@@ -263,32 +226,11 @@ def main_block():
     except KeyboardInterrupt:
         handle_ctrl_c(None, None)
 
-    print("Blocking Roblox now...")
-    block_everything()
-    print("✅ Roblox blocked. Exiting.")
-    sys.exit(0)
-
-def main_uninstall():
-    print("🧹 Running uninstall and cleanup...")
-    uninstall_everything()
-    print("✅ Uninstall and cleanup done. Exiting.")
-    sys.exit(0)
+    block_everything_and_exit()
 
 if __name__ == "__main__":
     if not is_admin():
         print("⚠️ Please run this script as Administrator.")
         input("Press Enter to exit...")
         sys.exit(1)
-
-    if len(sys.argv) > 1:
-        mode = sys.argv[1].lower()
-    else:
-        mode = "block"
-
-    if mode == "block":
-        main_block()
-    elif mode == "uninstall":
-        main_uninstall()
-    else:
-        print("❌ Unknown mode. Use 'block' or 'uninstall'.")
-        sys.exit(1)
+    main()
