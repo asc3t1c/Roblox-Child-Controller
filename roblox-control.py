@@ -122,12 +122,15 @@ def remove_roblox_appdata():
 
 def uninstall_roblox_app():
     print("\n🪑 Starting Roblox Player uninstall...")
+
     kill_roblox_processes()
+
     if not remove_roblox_appdata():
         print("⚠️ Proceeding even though AppData folder removal failed.")
 
     found = False
 
+    # Try uninstall via WMIC
     try:
         output = subprocess.check_output('wmic product get name', shell=True, text=True)
         for line in output.splitlines():
@@ -140,6 +143,7 @@ def uninstall_roblox_app():
     except Exception as e:
         print(f"⚠️ WMIC uninstall failed: {e}")
 
+    # Try PowerShell uninstall
     try:
         ps_check = subprocess.run([
             'powershell', '-Command', 'Get-Package -Name *Roblox*'
@@ -157,24 +161,45 @@ def uninstall_roblox_app():
         print(f"⚠️ PowerShell uninstall failed: {e}")
 
     if not found:
-        print("🎉 Roblox appears to already be uninstalled. Exiting.")
-        cleanup_and_exit()
+        print("🎉 Roblox appears to already be uninstalled.")
+
+def remove_roblox_exe_files():
+    print("\n🧹 Searching for Roblox .exe files...")
+
+    search_roots = [
+        os.environ.get("USERPROFILE", r"C:\Users"),
+        r"C:\Windows\Temp",
+        r"C:\ProgramData",
+        r"C:\Program Files",
+        r"C:\Program Files (x86)"
+    ]
+
+    removed = 0
+    for root_dir in search_roots:
+        for root, dirs, files in os.walk(root_dir):
+            for file in files:
+                if file.lower().startswith("roblox") and file.lower().endswith(".exe"):
+                    full_path = os.path.join(root, file)
+                    try:
+                        os.remove(full_path)
+                        print(f"🗑️ Deleted: {full_path}")
+                        removed += 1
+                    except Exception as e:
+                        print(f"⚠️ Could not delete {full_path}: {e}")
+    if removed == 0:
+        print("ℹ️ No Roblox .exe files found.")
+    else:
+        print(f"✅ Removed {removed} Roblox .exe file(s).")
 
 def block_everything_and_exit():
     block_domains(DOMAINS, BLOCK_ENTRIES)
     renamed_count = rename_roblox_executables()
     block_roblox_firewall()
     uninstall_roblox_app()
+    remove_roblox_exe_files()  # <-- NEW: Remove any leftover Roblox .exe files
     if renamed_count == 0:
-        print("ℹ️ No executables renamed (maybe already blocked).")
-    cleanup_and_exit()
-
-def cleanup_and_exit():
-    print("👋 Exiting now.")
-    try:
-        sys.exit(0)
-    finally:
-        os._exit(0)
+        print("ℹ️ No executables renamed (maybe already blocked). Exiting now.")
+    sys.exit(0)
 
 def handle_ctrl_c(signum, frame):
     print("\n🚫 Ctrl+C detected! Blocking Roblox and uninstalling before exit...")
