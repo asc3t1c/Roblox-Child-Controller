@@ -1,5 +1,5 @@
 # Roblox-Child-Controller 
-### NOTE: ONLY FOR PC's, no VM
+### NOTE: ONLY FOR Windows PC's, not for Virtual Machines!
 ![](docs/timer.jpg)
 
 ## Overview
