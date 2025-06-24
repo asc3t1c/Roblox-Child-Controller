@@ -42,4 +42,4 @@ How to use
 python roblox-control.py
 ```
 
-- Pressing Ctrl+C during the waiting period will run the uninstall/cleanup before exiting.
+- Pressing Ctrl+C during the waiting period will run the uninstall/cleanup before exiting and leave the domain blocked.
