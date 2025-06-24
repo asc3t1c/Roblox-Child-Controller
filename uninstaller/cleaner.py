@@ -5,9 +5,12 @@ import ctypes
 import subprocess
 import shutil
 import time
+import getpass
 import win32api
 import win32con
 
+# === CONFIGURATION ===
+PASSWORD = "parentonly"  # Change this to your own secret password
 HOSTS_PATH = r"C:\Windows\System32\drivers\etc\hosts"
 DOMAINS = ["www.roblox.com", "roblox.com"]
 REDIRECT_IP = "127.0.0.1"
@@ -19,6 +22,18 @@ def is_admin():
         return ctypes.windll.shell32.IsUserAnAdmin()
     except:
         return False
+
+def password_check():
+    print("🔐 Parental Access Required")
+    for attempt in range(3):
+        pw = getpass.getpass("Enter password to continue: ")
+        if pw == PASSWORD:
+            print("✅ Access granted.\n")
+            return
+        else:
+            print("❌ Incorrect password.\n")
+    print("🚫 Too many failed attempts. Exiting.")
+    sys.exit(1)
 
 def unblock_domains(domains):
     print("🧹 Unblocking Roblox domains in hosts file...")
@@ -42,7 +57,7 @@ def restore_renamed_executables():
         for root, _, files in os.walk(base_path):
             for file in files:
                 if file.endswith(".blocked"):
-                    orig_file = file[:-8]  # remove ".blocked"
+                    orig_file = file[:-8]
                     orig_path = os.path.join(root, orig_file)
                     blocked_path = os.path.join(root, file)
                     try:
@@ -80,14 +95,13 @@ def kill_roblox_processes():
 def uninstall_roblox():
     print("🧹 Uninstalling Roblox via WMIC and PowerShell...")
     try:
-        # WMIC uninstall
         output = subprocess.check_output('wmic product get name', shell=True, text=True)
         for line in output.splitlines():
             if "Roblox" in line:
                 name = line.strip()
                 print(f"🛠️ Uninstalling: {name}")
                 subprocess.run(f'wmic product where name="{name}" call uninstall /nointeractive', shell=True)
-                time.sleep(3)  # wait a little for uninstall
+                time.sleep(3)
                 break
         else:
             print("ℹ️ Roblox not found via WMIC.")
@@ -95,7 +109,6 @@ def uninstall_roblox():
         print(f"❌ WMIC uninstall failed: {e}")
 
     try:
-        # PowerShell uninstall fallback
         ps_check = subprocess.run([
             'powershell', '-Command', 'Get-Package -Name *Roblox*'
         ], capture_output=True, text=True)
@@ -130,7 +143,9 @@ def main():
         input("Press Enter to exit...")
         sys.exit(1)
 
-    print("=== Roblox Cleaning & Reset Script ===")
+    password_check()
+
+    print("=== Roblox Cleaning & Reset Script ===\n")
 
     unblock_domains(DOMAINS)
     restore_renamed_executables()
