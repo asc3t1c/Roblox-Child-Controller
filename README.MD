@@ -33,5 +33,17 @@ This Python script helps parents control Roblox usage on a Windows 11 PC by allo
 
 ## How to Use
 
-1. Open Command Prompt or PowerShell **as Administrator**.
-2. Run the script with Python:
+How to use
+1. Run as Administrator!
+
+- To block Roblox after some allowed time, run:
+```
+python script.py block
+```
+It will unblock Roblox domains first, wait your chosen time, then block Roblox fully.
+
+2. To uninstall and clean everything (unblock domains, firewall, restore files, uninstall Roblox app), run:
+```
+python script.py uninstall
+```
+3. Pressing Ctrl+C during the waiting period will run the uninstall/cleanup before exiting.
