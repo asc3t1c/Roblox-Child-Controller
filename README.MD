@@ -37,6 +37,11 @@ How to use
 1. Run as Administrator!
 
 - To block Roblox after some allowed time, run:
+
+```
+python roblox-control.py
+```
+- Custom:
 ```
 python roblox-control.py block
 ```
