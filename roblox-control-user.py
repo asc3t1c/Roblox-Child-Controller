@@ -6,7 +6,6 @@ import subprocess
 import signal
 import sys
 
-ROBLOX_EXE_NAMES = ["RobloxPlayerBeta.exe", "RobloxPlayerLauncher.exe"]
 USER = os.getlogin()
 LOCAL_ROBLOX_PATH = os.path.join("C:\\Users", USER, "AppData", "Local", "Roblox")
 
@@ -16,12 +15,23 @@ DOMAINS = ["www.roblox.com", "roblox.com"]
 BLOCK_ENTRIES = [f"{REDIRECT_IP} {domain}\n" for domain in DOMAINS]
 
 def kill_roblox_processes():
-    for exe in ROBLOX_EXE_NAMES:
-        try:
-            subprocess.run(["taskkill", "/F", "/IM", exe], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            print(f"🔪 Killed process: {exe}")
-        except Exception as e:
-            print(f"⚠️ Failed to kill {exe}: {e}")
+    # Kill any RobloxPlayer*.exe process
+    try:
+        # List all running processes and kill those matching pattern
+        output = subprocess.check_output('tasklist', shell=True, text=True)
+        for line in output.splitlines():
+            parts = line.split()
+            if not parts:
+                continue
+            proc_name = parts[0]
+            if proc_name.lower().startswith("robloxplayer") and proc_name.lower().endswith(".exe"):
+                try:
+                    subprocess.run(["taskkill", "/F", "/IM", proc_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    print(f"🔪 Killed process: {proc_name}")
+                except Exception as e:
+                    print(f"⚠️ Failed to kill {proc_name}: {e}")
+    except Exception as e:
+        print(f"⚠️ Could not list running processes: {e}")
 
 def delete_local_roblox_folder():
     if os.path.exists(LOCAL_ROBLOX_PATH):
@@ -34,7 +44,7 @@ def delete_local_roblox_folder():
         print("ℹ️ Roblox folder not found.")
 
 def delete_roblox_exe_files():
-    print("🧹 Searching for Roblox .exe files in user-accessible locations...")
+    print("🧹 Searching for RobloxPlayer*.exe files in user-accessible locations...")
 
     search_dirs = [
         LOCAL_ROBLOX_PATH,
@@ -46,7 +56,8 @@ def delete_roblox_exe_files():
     for root_dir in search_dirs:
         for root, _, files in os.walk(root_dir):
             for file in files:
-                if file.lower().startswith("roblox") and file.lower().endswith(".exe"):
+                fname_lower = file.lower()
+                if fname_lower.startswith("robloxplayer") and fname_lower.endswith(".exe"):
                     full_path = os.path.join(root, file)
                     try:
                         os.remove(full_path)
@@ -55,13 +66,12 @@ def delete_roblox_exe_files():
                     except Exception as e:
                         print(f"⚠️ Could not delete {full_path}: {e}")
     if count == 0:
-        print("ℹ️ No .exe files deleted (none found or access denied).")
+        print("ℹ️ No RobloxPlayer*.exe files deleted (none found or access denied).")
     else:
-        print(f"✅ Removed {count} Roblox .exe file(s).")
+        print(f"✅ Removed {count} RobloxPlayer*.exe file(s).")
 
 def block_roblox_domains():
     try:
-        # Read current hosts file lines (if accessible)
         with open(HOSTS_PATH, 'r+') as hosts_file:
             lines = hosts_file.readlines()
             hosts_file.seek(0, os.SEEK_END)  # Go to file end
