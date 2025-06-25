@@ -191,23 +191,25 @@ def full_block_and_uninstall():
     block_domains()
     block_roblox_firewall()
     uninstall_roblox_app()
-    # Always delete Roblox .exe files last
-    remove_roblox_exe_files_all_users()
-    print("✅ All cleanup completed. Exiting.")
+    print("✅ Completed all steps except final exe removal.")
+
+def cleanup_and_exit():
+    try:
+        full_block_and_uninstall()
+    finally:
+        # ALWAYS delete all Roblox exe files here, no matter what happened before
+        remove_roblox_exe_files_all_users()
+        print("✅ Final Roblox exe files removal done.")
     sys.exit(0)
 
 def handle_exit_signal(signum, frame):
     print("\n🚨 Exit signal caught! Performing cleanup now...")
-    full_block_and_uninstall()
-    # Fallback in case sys.exit() is changed later (unlikely to run)
-    remove_roblox_exe_files_all_users()
+    cleanup_and_exit()
 
 def console_ctrl_handler(event):
     if event == win32con.CTRL_CLOSE_EVENT:
         print("\n🚨 Console window is closing! Running cleanup...")
-        full_block_and_uninstall()
-        # Fallback again
-        remove_roblox_exe_files_all_users()
+        cleanup_and_exit()
         return True
     return False
 
@@ -230,7 +232,6 @@ def main():
     signal.signal(signal.SIGINT, handle_exit_signal)
     signal.signal(signal.SIGTERM, handle_exit_signal)
 
-    # Register console close handler for graceful cleanup on window close (X)
     win32api.SetConsoleCtrlHandler(console_ctrl_handler, True)
 
     print("✅ Running with Administrator privileges.")
@@ -244,7 +245,7 @@ def main():
     except KeyboardInterrupt:
         print("\n🛑 Interrupted — starting cleanup.")
 
-    full_block_and_uninstall()
+    cleanup_and_exit()
 
 if __name__ == "__main__":
     main()
