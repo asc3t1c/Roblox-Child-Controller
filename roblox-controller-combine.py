@@ -7,9 +7,9 @@ import signal
 import ctypes
 import subprocess
 import shutil
+import fnmatch
 import win32api
 import win32con
-import fnmatch
 
 HOSTS_PATH = r"C:\Windows\System32\drivers\etc\hosts"
 REDIRECT_IP = "127.0.0.1"
@@ -171,34 +171,39 @@ def uninstall_roblox_app():
     if not found:
         print("🎉 Roblox appears to already be uninstalled.")
 
-def delete_robloxplayer_executables():
+def delete_robloxplayer_executables_all_users():
     pattern = "RobloxPlayer*.exe"
     removed_count = 0
 
-    # Add Desktop for current user and other common directories
-    search_roots = [
-        r"C:\Users",
-        r"C:\ProgramData",
-        r"C:\Program Files",
-        r"C:\Program Files (x86)",
-        r"C:\Windows\Temp",
-        os.path.join(os.environ.get("USERPROFILE", r"C:\Users\Default"), "Desktop"),
-        "C:\\"
+    users_dir = r"C:\Users"
+    common_dirs = [
+        "Desktop",
+        os.path.join("AppData", "Local", "Roblox", "Versions")
     ]
 
-    for root_dir in search_roots:
-        for root, dirs, files in os.walk(root_dir):
-            for file in files:
-                if fnmatch.fnmatch(file.lower(), pattern.lower()):
-                    full_path = os.path.join(root, file)
-                    try:
-                        os.remove(full_path)
-                        print(f"🗑️ Deleted: {full_path}")
-                        removed_count += 1
-                    except Exception as e:
-                        print(f"⚠️ Failed to delete {full_path}: {e}")
+    for user_folder in os.listdir(users_dir):
+        user_path = os.path.join(users_dir, user_folder)
 
-    print(f"✅ Total '{pattern}' files deleted: {removed_count}")
+        # Skip known system/default folders
+        if user_folder.lower() in ['default', 'defaultuser0', 'public', 'all users', 'desktop.ini']:
+            continue
+
+        for common_dir in common_dirs:
+            check_dir = os.path.join(user_path, common_dir)
+            if not os.path.exists(check_dir):
+                continue
+            for root, dirs, files in os.walk(check_dir):
+                for file in files:
+                    if fnmatch.fnmatch(file, pattern):
+                        full_path = os.path.join(root, file)
+                        try:
+                            os.remove(full_path)
+                            print(f"🗑️ Deleted: {full_path}")
+                            removed_count += 1
+                        except Exception as e:
+                            print(f"⚠️ Failed to delete {full_path}: {e}")
+
+    print(f"✅ Total '{pattern}' files deleted for all users: {removed_count}")
 
 def limited_cleanup():
     print("\n🔧 Running limited cleanup (kill processes, delete appdata, rename executables)...")
@@ -212,7 +217,7 @@ def full_block_and_uninstall():
     block_domains()
     block_roblox_firewall()
     uninstall_roblox_app()
-    delete_robloxplayer_executables()
+    delete_robloxplayer_executables_all_users()
     print("🚪 Cleanup and blocking complete. Exiting.")
     sys.exit(0)
 
