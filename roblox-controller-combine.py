@@ -193,6 +193,7 @@ def full_block_and_uninstall():
     uninstall_roblox_app()
     remove_roblox_exe_files_all_users()
     print("✅ All cleanup completed. Exiting.")
+    input("✅ Press Enter to exit...")
     sys.exit(0)
 
 def handle_exit_signal(signum, frame):
@@ -211,9 +212,13 @@ def get_wait_time_hours():
             print("❌ Invalid input.")
 
 def main():
+    print("🚀 Script launched.")
     if not is_admin():
-        print("❌ You must run this script as Administrator!")
-        sys.exit(1)
+        print("🛡️ Requesting administrator privileges...")
+        ctypes.windll.shell32.ShellExecuteW(
+            None, "runas", sys.executable, __file__, None, 1
+        )
+        sys.exit(0)
 
     signal.signal(signal.SIGINT, handle_exit_signal)
     signal.signal(signal.SIGTERM, handle_exit_signal)
