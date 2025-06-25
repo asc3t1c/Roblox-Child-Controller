@@ -1,5 +1,5 @@
 # Roblox-Child-Controller 
-### NOTE: ONLY FOR Windows PC's `Administrator accounts`, not for Virtual Machines and other OS, or any Virtual Machine!
+### NOTE: ONLY FOR Windows PC's, not for Virtual Machines and other OS, or any Virtual Machine!
 ![](docs/timer.jpg)
 
 ## Overview
