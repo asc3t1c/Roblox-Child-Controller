@@ -211,7 +211,7 @@ def limited_cleanup():
     delete_roblox_appdata_for_all_users()
     rename_roblox_executables_all_users()
 
-def full_block_and_uninstall():
+def full_block_and_uninstall(exit_after=True):
     limited_cleanup()
     print("\n🔒 Running admin-level blocking and uninstall...")
     block_domains()
@@ -219,12 +219,14 @@ def full_block_and_uninstall():
     uninstall_roblox_app()
     delete_robloxplayer_executables_all_users()
     print("🚪 Cleanup and blocking complete. Waiting 7 seconds before exit...")
-    time.sleep(7)  # <-- Added this wait
-    sys.exit(0)
+    time.sleep(7)
+    if exit_after:
+        sys.exit(0)
 
 def handle_exit_signal(signum, frame):
     print("\n🚨 Exit signal caught! Running cleanup...")
-    full_block_and_uninstall()
+    full_block_and_uninstall(exit_after=False)
+    sys.exit(0)
 
 def console_ctrl_handler(event):
     if event in (
@@ -232,8 +234,9 @@ def console_ctrl_handler(event):
         win32con.CTRL_CLOSE_EVENT, win32con.CTRL_LOGOFF_EVENT, win32con.CTRL_SHUTDOWN_EVENT
     ):
         print("\n🔌 Console close or system signal detected — running cleanup...")
-        full_block_and_uninstall()
-        return True
+        full_block_and_uninstall(exit_after=False)
+        # Return False to let the OS close the console after cleanup
+        return False
     return False
 
 def get_wait_time_hours():
