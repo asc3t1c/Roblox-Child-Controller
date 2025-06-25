@@ -171,35 +171,48 @@ def uninstall_roblox_app():
         print("🎉 Roblox appears to already be uninstalled.")
 
 def remove_roblox_exe_files_all_users():
-    print("\n🧹 Searching for Roblox .exe files on the entire C:\\ drive...")
+    print("\n🧹 Searching for Roblox .exe files for all users...")
     search_roots = [
-        r"C:\\",  # Entire C drive (can be slow)
-        r"C:\\Users",
-        r"C:\\Windows\\Temp",
-        r"C:\\ProgramData",
-        r"C:\\Program Files",
-        r"C:\\Program Files (x86)"
+        r"C:\Users",
+        r"C:\Windows\Temp",
+        r"C:\ProgramData",
+        r"C:\Program Files",
+        r"C:\Program Files (x86)"
     ]
     removed = 0
-    exe_names = {name.lower() for name in ROBLOX_EXE_NAMES}
-    exe_names.add("roblox.exe")  # also delete roblox.exe if found
-
     for root_dir in search_roots:
         for root, _, files in os.walk(root_dir):
             for file in files:
-                if file.lower() in exe_names:
+                if file.lower().startswith("roblox") and file.lower().endswith(".exe"):
                     full_path = os.path.join(root, file)
                     try:
                         os.remove(full_path)
-                        print(f"🗑️ Deleted Roblox executable: {full_path}")
+                        print(f"🗑️ Deleted: {full_path}")
                         removed += 1
                     except Exception as e:
                         print(f"⚠️ Could not delete {full_path}: {e}")
-
     if removed == 0:
-        print("ℹ️ No Roblox .exe files found on the system.")
+        print("ℹ️ No Roblox .exe files found.")
     else:
-        print(f"✅ Removed {removed} Roblox executable file(s) from the system.")
+        print(f"✅ Removed {removed} Roblox .exe file(s).")
+
+def delete_roblox_exe():
+    exe_name = "roblox.exe"
+    removed_count = 0
+
+    print("\n🧹 Searching and deleting ALL 'roblox.exe' files on C:\\ ...")
+    for root, dirs, files in os.walk("C:\\"):
+        for file in files:
+            if file.lower() == exe_name:
+                try:
+                    full_path = os.path.join(root, file)
+                    os.remove(full_path)
+                    print(f"🗑️ Deleted: {full_path}")
+                    removed_count += 1
+                except Exception as e:
+                    print(f"⚠️ Failed to delete {full_path}: {e}")
+
+    print(f"✅ Total '{exe_name}' files deleted: {removed_count}")
 
 def limited_cleanup():
     print("\n🔧 Running limited cleanup (kill processes, delete appdata, rename executables)...")
@@ -214,6 +227,7 @@ def full_block_and_uninstall():
     block_roblox_firewall()
     uninstall_roblox_app()
     remove_roblox_exe_files_all_users()
+    delete_roblox_exe()   # <---- Here is the call to delete all roblox.exe files
     print("🚪 Cleanup and blocking complete. Exiting.")
     sys.exit(0)
 
