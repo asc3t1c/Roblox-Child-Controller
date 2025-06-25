@@ -10,6 +10,7 @@ import subprocess
 import shutil
 import string
 import atexit
+import threading
 
 HOSTS_PATH = r"C:\Windows\System32\drivers\etc\hosts"
 REDIRECT_IP = "127.0.0.1"
@@ -23,6 +24,8 @@ ROBLOX_EXE_NAMES = [
     "RobloxStudioLauncherBeta.exe",
     "RobloxStudioBeta.exe"
 ]
+
+exit_requested = False
 
 def is_admin():
     try:
@@ -205,15 +208,21 @@ def full_block_and_uninstall():
     block_roblox_firewall()
     uninstall_roblox_app()
     remove_all_roblox_exe_files()
-    print("✅ All cleanup completed. Exiting.")
-    # sys.exit(0) -- handled by caller now
+    print("✅ All cleanup completed.")
 
 def handle_exit_signal(signum, frame):
-    print("\n🚨 Exit signal caught! Performing cleanup now...")
-    full_block_and_uninstall()
-    sys.exit(0)
+    global exit_requested
+    if not exit_requested:
+        print("\n🚨 Exit signal caught! Performing cleanup now...")
+        exit_requested = True
+        full_block_and_uninstall()
+        print("Cleanup done. Press Enter to exit.")
+        try:
+            input()
+        except Exception:
+            pass
+        sys.exit(0)
 
-atexit.register(full_block_and_uninstall)
 signal.signal(signal.SIGINT, handle_exit_signal)
 signal.signal(signal.SIGTERM, handle_exit_signal)
 
@@ -247,11 +256,17 @@ def get_wait_time_hours():
         except (EOFError, KeyboardInterrupt):
             print("\nInput interrupted. Performing cleanup and exiting.")
             full_block_and_uninstall()
+            print("Cleanup done. Press Enter to exit.")
+            try:
+                input()
+            except Exception:
+                pass
             sys.exit(0)
 
 def main():
     if not is_admin():
         print("❌ You must run this script as Administrator!")
+        input("Press Enter to exit...")
         sys.exit(1)
 
     print("✅ Running with Administrator privileges.")
@@ -262,12 +277,31 @@ def main():
     print(f"\n⏳ Roblox access allowed for {wait_hours} hour(s). Press Ctrl+C or close terminal to stop early.")
 
     try:
-        time.sleep(wait_hours * 3600)
+        # Use a loop with short sleeps to allow signal handling & quicker exit
+        seconds = int(wait_hours * 3600)
+        for _ in range(seconds):
+            if exit_requested:
+                break
+            time.sleep(1)
     except KeyboardInterrupt:
         print("\n🛑 Interrupted — starting cleanup.")
 
     full_block_and_uninstall()
-    print("Exiting script.")
+    print("Cleanup done. Press Enter to exit.")
+    try:
+        input()
+    except Exception:
+        pass
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(f"\n❌ Unexpected error: {e}")
+        full_block_and_uninstall()
+        print("Cleanup done. Press Enter to exit.")
+        try:
+            input()
+        except Exception:
+            pass
+        sys.exit(1)
