@@ -10,6 +10,11 @@ ROBLOX_EXE_NAMES = ["RobloxPlayerBeta.exe", "RobloxPlayerLauncher.exe"]
 USER = os.getlogin()
 LOCAL_ROBLOX_PATH = os.path.join("C:\\Users", USER, "AppData", "Local", "Roblox")
 
+HOSTS_PATH = r"C:\Windows\System32\drivers\etc\hosts"
+REDIRECT_IP = "127.0.0.1"
+DOMAINS = ["www.roblox.com", "roblox.com"]
+BLOCK_ENTRIES = [f"{REDIRECT_IP} {domain}\n" for domain in DOMAINS]
+
 def kill_roblox_processes():
     for exe in ROBLOX_EXE_NAMES:
         try:
@@ -54,10 +59,27 @@ def delete_roblox_exe_files():
     else:
         print(f"✅ Removed {count} Roblox .exe file(s).")
 
+def block_roblox_domains():
+    try:
+        # Read current hosts file lines (if accessible)
+        with open(HOSTS_PATH, 'r+') as hosts_file:
+            lines = hosts_file.readlines()
+            hosts_file.seek(0, os.SEEK_END)  # Go to file end
+            for entry in BLOCK_ENTRIES:
+                if entry not in lines:
+                    hosts_file.write(entry)
+                    print(f"🚫 Blocked domain: {entry.strip().split()[1]}")
+        print("✅ Roblox domains blocked in hosts file.")
+    except PermissionError:
+        print("⚠️ Permission denied: Cannot modify hosts file. Run as admin to block domains.")
+    except Exception as e:
+        print(f"❌ Failed to block domains: {e}")
+
 def block_roblox_user_level():
     kill_roblox_processes()
     delete_local_roblox_folder()
     delete_roblox_exe_files()
+    block_roblox_domains()
     print("✅ Roblox blocked (user-level).")
 
 def handle_exit(signum, frame):
@@ -72,7 +94,7 @@ def wait_then_block(hours):
         time.sleep(seconds)
     except KeyboardInterrupt:
         handle_exit(None, None)
-    print("\n⏲️ Time's up! Roblox will now be removed.")
+    print("\n⏲️ Time's up! Roblox will now be blocked.")
     block_roblox_user_level()
 
 def main():
