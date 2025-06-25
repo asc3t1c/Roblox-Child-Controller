@@ -185,45 +185,34 @@ def main():
     admin = is_admin()
     print(f"Running as admin: {admin}")
 
-    choice = None
-    while choice not in ["1", "2"]:
-        print("\nChoose mode:")
-        print("1) Limited user mode (no admin) - kills Roblox, removes AppData, renames exes")
-        print("2) Full admin mode - uninstall Roblox, blocks domains/firewall, deletes executables")
-        choice = input("Enter 1 or 2: ").strip()
+    print("\n🚀 Step 1: Limited cleanup (kills Roblox, removes AppData, renames exes)...")
+    kill_roblox_processes()
+    remove_roblox_appdata()
+    rename_roblox_executables()
 
-    if choice == "2" and not admin:
-        print("⚠️ You selected full admin mode but script is NOT running as admin.")
-        print("Please run the script as Administrator and try again.")
-        input("Press Enter to exit...")
-        sys.exit(1)
+    if admin:
+        print("\n🌐 Step 2: Roblox domains will be temporarily unblocked while waiting...")
+        unblock_domains()
 
-    if choice == "1":
-        print("🚀 Running in limited user mode...")
-        kill_roblox_processes()
-        remove_roblox_appdata()
-        rename_roblox_executables()
-        print("🚪 Done with limited blocking. Exiting.")
-        sys.exit(0)
-
-    if choice == "2":
-        print("🚀 Running in full admin mode...")
-        unblock_domains()  # allow Roblox temporarily before blocking
         try:
-            hours = float(input("⏳ Enter hours to wait before blocking Roblox (e.g., 1.5): "))
+            hours = float(input("⏳ Enter hours to wait before full blocking/uninstall (e.g., 1.5): "))
             if hours <= 0:
                 raise ValueError
         except ValueError:
             print("❌ Invalid input. Exiting.")
             sys.exit(1)
 
-        print(f"⏳ Waiting {hours} hour(s)... Press Ctrl+C to block immediately.")
+        print(f"⏳ Waiting {hours} hour(s)... Press Ctrl+C to block now.")
         try:
             time.sleep(hours * 3600)
         except KeyboardInterrupt:
             print("\n🛑 Interrupted early - blocking Roblox now...")
 
         block_everything(admin_mode=True)
+    else:
+        print("\n⚠️ Not running as admin, full blocking/uninstall skipped.")
+        print("🚪 Exiting after limited cleanup.")
+        sys.exit(0)
 
 if __name__ == "__main__":
     main()
