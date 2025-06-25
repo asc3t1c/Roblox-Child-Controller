@@ -1,28 +1,14 @@
-#!/usr/bin/python
-# by nu11secur1ty - Roblox timer & enforced cleanup
+#!/usr/bin/env python
+# Author: nu11secur1ty - final safe cleanup for roblox.exe
 
 import os
 import sys
 import time
 import signal
 import ctypes
-import subprocess
 import shutil
+import subprocess
 import string
-from ctypes import wintypes
-
-HOSTS_PATH = r"C:\Windows\System32\drivers\etc\hosts"
-REDIRECT_IP = "127.0.0.1"
-DOMAINS = ["www.roblox.com", "roblox.com"]
-BLOCK_ENTRIES = [f"{REDIRECT_IP} {domain}\n" for domain in DOMAINS]
-FIREWALL_RULE_NAME = "Block Roblox Player"
-
-ROBLOX_EXE_NAMES = [
-    "RobloxPlayerBeta.exe",
-    "RobloxPlayerLauncher.exe",
-    "RobloxStudioLauncherBeta.exe",
-    "RobloxStudioBeta.exe"
-]
 
 def is_admin():
     try:
@@ -30,142 +16,103 @@ def is_admin():
     except:
         return False
 
-def kill_roblox_processes():
-    for proc in ROBLOX_EXE_NAMES:
-        subprocess.run(['taskkill', '/F', '/IM', proc], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-def delete_roblox_appdata_for_all_users():
-    users_folder = r"C:\Users"
-    for user in os.listdir(users_folder):
-        path = os.path.join(users_folder, user, "AppData", "Local", "Roblox")
-        if os.path.exists(path):
-            try:
-                shutil.rmtree(path)
-            except: pass
-
-def find_roblox_executables():
-    paths = []
-    for drive in get_fixed_drives():
-        for root, _, files in os.walk(drive):
-            for file in files:
-                if file.lower().endswith("roblox.exe") or "roblox" in file.lower() and file.lower().endswith(".exe"):
-                    paths.append(os.path.join(root, file))
-    return paths
-
-def delete_all_roblox_exes():
-    files = find_roblox_executables()
-    for path in files:
-        try:
-            os.remove(path)
-        except: pass
-
-def block_domains():
-    try:
-        with open(HOSTS_PATH, 'r+') as f:
-            lines = f.readlines()
-            f.seek(0, os.SEEK_END)
-            for entry in BLOCK_ENTRIES:
-                if entry not in lines:
-                    f.write(entry)
-    except: pass
-
-def unblock_domains():
-    try:
-        with open(HOSTS_PATH, 'r') as f:
-            lines = f.readlines()
-        with open(HOSTS_PATH, 'w') as f:
-            for line in lines:
-                if not any(domain in line for domain in DOMAINS):
-                    f.write(line)
-    except: pass
-
-def block_roblox_firewall():
-    try:
-        for path in find_roblox_executables():
-            subprocess.run([
-                "netsh", "advfirewall", "firewall", "add", "rule",
-                f"name={FIREWALL_RULE_NAME}",
-                "dir=out", "action=block", f"program={path}",
-                "enable=yes"
-            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except: pass
-
-def uninstall_roblox_app():
-    kill_roblox_processes()
-    delete_roblox_appdata_for_all_users()
-
 def get_fixed_drives():
     drives = []
     bitmask = ctypes.windll.kernel32.GetLogicalDrives()
-    for i, letter in enumerate(string.ascii_uppercase):
-        if bitmask & (1 << i):
-            drive = f"{letter}:\\"
-            if ctypes.windll.kernel32.GetDriveTypeW(drive) == 3:
-                drives.append(drive)
+    for letter in string.ascii_uppercase:
+        if bitmask & 1:
+            path = f"{letter}:/"
+            if ctypes.windll.kernel32.GetDriveTypeW(path) == 3:
+                drives.append(path)
+        bitmask >>= 1
     return drives
 
-def final_cleanup_and_exit():
-    try:
-        block_domains()
-        block_roblox_firewall()
-        uninstall_roblox_app()
-        delete_all_roblox_exes()
-    except: pass
+def kill_roblox_processes():
+    for proc in ["roblox.exe"]:
+        subprocess.run(['taskkill', '/F', '/IM', proc], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+def delete_roblox_appdata_for_all_users():
+    users_dir = r"C:\Users"
+    for user in os.listdir(users_dir):
+        if user.lower() in ['default', 'public', 'all users', 'defaultuser0']:
+            continue
+        roblox_path = os.path.join(users_dir, user, 'AppData', 'Local', 'Roblox')
+        if os.path.exists(roblox_path):
+            try:
+                shutil.rmtree(roblox_path)
+                print(f"🗑️ Deleted AppData for user: {user}")
+            except Exception as e:
+                print(f"⚠️ Could not delete {roblox_path}: {e}")
+
+def remove_all_roblox_exe_files():
+    print("🔍 Searching for roblox.exe across all drives...")
+    count = 0
+    for drive in get_fixed_drives():
+        for root, _, files in os.walk(drive):
+            for f in files:
+                if f.lower() == "roblox.exe":
+                    path = os.path.join(root, f)
+                    try:
+                        os.remove(path)
+                        print(f"🗑️ Deleted: {path}")
+                        count += 1
+                    except Exception as e:
+                        print(f"⚠️ Cannot delete {path}: {e}")
+    if count == 0:
+        print("✅ No roblox.exe found.")
+    else:
+        print(f"✅ Deleted {count} roblox.exe files.")
+
+def full_cleanup():
+    print("\n🧹 Final cleanup triggered!")
+    kill_roblox_processes()
+    delete_roblox_appdata_for_all_users()
+    remove_all_roblox_exe_files()
+    print("✅ Cleanup complete. Goodbye!")
     sys.exit(0)
 
-def wait_choice():
-    print("⏳ Select Roblox usage time:")
-    print("1) 1 hour\n2) 2 hours\n3) 3 hours\n4) Custom")
+def handle_exit(signum, frame):
+    print("\n🚨 Exit attempt caught (Ctrl+C or X).")
+    full_cleanup()
+
+def get_wait_time_hours():
+    print("\n⏳ Choose Roblox allowed access time:")
+    print("  1) 1 hour")
+    print("  2) 2 hours")
+    print("  3) 3 hours")
+    print("  4) Custom hours")
     while True:
-        opt = input("Choose (1-4): ").strip()
-        if opt in ['1', '2', '3']:
-            return int(opt)
-        elif opt == '4':
+        choice = input("Select option (1-4): ").strip()
+        if choice == '1': return 1
+        if choice == '2': return 2
+        if choice == '3': return 3
+        if choice == '4':
             try:
-                h = float(input("Enter hours: ").strip())
-                if h > 0: return h
-            except: pass
-        print("❌ Invalid choice. Try again.")
-
-# ========== HANDLE CMD X-BUTTON CLOSE ==========
-
-CTRL_C_EVENT = 0
-CTRL_CLOSE_EVENT = 2
-PHANDLER_ROUTINE = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.DWORD)
-
-@PHANDLER_ROUTINE
-def console_ctrl_handler(ctrl_type):
-    if ctrl_type in (CTRL_C_EVENT, CTRL_CLOSE_EVENT):
-        print("\n⚠️ CTRL+C or Close detected! Cleaning up...")
-        final_cleanup_and_exit()
-    return False
-
-# Register handler
-ctypes.windll.kernel32.SetConsoleCtrlHandler(console_ctrl_handler, True)
-
-# ========== END ==========
+                hours = float(input("Enter number of hours: ").strip())
+                if hours > 0:
+                    return hours
+            except:
+                pass
+        print("❌ Invalid input. Try again.")
 
 def main():
     if not is_admin():
-        print("❌ Please run as Administrator.")
-        time.sleep(2)
+        print("❌ Please run this script as Administrator.")
         sys.exit(1)
 
-    signal.signal(signal.SIGINT, lambda s, f: final_cleanup_and_exit())
-    signal.signal(signal.SIGTERM, lambda s, f: final_cleanup_and_exit())
+    signal.signal(signal.SIGINT, handle_exit)
+    signal.signal(signal.SIGTERM, handle_exit)
 
-    unblock_domains()
-    kill_roblox_processes()
-    delete_roblox_appdata_for_all_users()
+    print("✅ Running with Admin rights.")
+    hours = get_wait_time_hours()
+    print(f"\n🔓 Roblox is allowed for {hours} hour(s). Press Ctrl+C or close window to stop early.")
 
-    hours = wait_choice()
-    print(f"\n✅ Roblox allowed for {hours} hour(s). Press Ctrl+C or close window to stop early.\n")
     try:
         time.sleep(hours * 3600)
     except:
-        pass
+        print("\n🛑 Interrupted...")
 
-    final_cleanup_and_exit()
+    full_cleanup()
 
 if __name__ == "__main__":
     main()
