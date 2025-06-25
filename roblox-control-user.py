@@ -1,93 +1,68 @@
 import os
+import subprocess
 import time
 import shutil
-import subprocess
-import signal
-import sys
 
-ROBLOX_EXE_NAMES = ["RobloxPlayerBeta.exe", "RobloxPlayerLauncher.exe"]
-USER = os.getlogin()
-LOCAL_ROBLOX_PATH = os.path.join("C:\\Users", USER, "AppData", "Local", "Roblox")
+# Domains to "block" via fake open method
+ROBLOX_DOMAINS = ["www.roblox.com", "roblox.com"]
 
-def kill_roblox_processes():
-    for exe in ROBLOX_EXE_NAMES:
-        try:
-            subprocess.run(["taskkill", "/F", "/IM", exe], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            print(f"🔪 Killed process: {exe}")
-        except Exception as e:
-            print(f"⚠️ Failed to kill {exe}: {e}")
-
-def delete_local_roblox_folder():
-    if os.path.exists(LOCAL_ROBLOX_PATH):
-        try:
-            shutil.rmtree(LOCAL_ROBLOX_PATH)
-            print(f"🗑️ Deleted local Roblox folder: {LOCAL_ROBLOX_PATH}")
-        except Exception as e:
-            print(f"❌ Failed to delete Roblox folder: {e}")
-    else:
-        print("ℹ️ Roblox folder not found.")
-
-def delete_roblox_exe_files():
-    print("🧹 Searching for Roblox .exe files in user-accessible locations...")
-
+# Folders to search for Roblox executables
+def find_and_delete_roblox_exes():
+    userprofile = os.environ.get("USERPROFILE", "")
     search_dirs = [
-        LOCAL_ROBLOX_PATH,
-        os.environ.get("TEMP", r"C:\Windows\Temp"),
-        os.path.join("C:\\Users", USER, "Downloads")
+        os.path.join(userprofile, "AppData", "Local", "Roblox"),
+        os.path.join(userprofile, "Downloads"),
+        os.path.join(userprofile, "Desktop"),
     ]
 
-    count = 0
-    for root_dir in search_dirs:
-        for root, _, files in os.walk(root_dir):
+    deleted = 0
+    for directory in search_dirs:
+        if not os.path.exists(directory):
+            continue
+        for root, dirs, files in os.walk(directory):
             for file in files:
                 if file.lower().startswith("roblox") and file.lower().endswith(".exe"):
                     full_path = os.path.join(root, file)
                     try:
                         os.remove(full_path)
                         print(f"🗑️ Deleted: {full_path}")
-                        count += 1
+                        deleted += 1
                     except Exception as e:
-                        print(f"⚠️ Could not delete {full_path}: {e}")
-    if count == 0:
-        print("ℹ️ No .exe files deleted (none found or access denied).")
+                        print(f"⚠️ Failed to delete {full_path}: {e}")
+    if deleted == 0:
+        print("ℹ️ No Roblox .exe files found.")
     else:
-        print(f"✅ Removed {count} Roblox .exe file(s).")
+        print(f"✅ Deleted {deleted} Roblox executable(s).")
 
-def block_roblox_user_level():
-    kill_roblox_processes()
-    delete_local_roblox_folder()
-    delete_roblox_exe_files()
-    print("✅ Roblox blocked (user-level).")
-
-def handle_exit(signum, frame):
-    print("\n⚠️ Exit signal detected. Blocking Roblox now...")
-    block_roblox_user_level()
-    sys.exit(0)
-
-def wait_then_block(hours):
-    seconds = hours * 3600
-    print(f"⏳ Waiting {hours} hour(s)...")
+# Tries to block the domain using the default browser
+def open_blocked_tab():
     try:
-        time.sleep(seconds)
-    except KeyboardInterrupt:
-        handle_exit(None, None)
-    print("\n⏲️ Time's up! Roblox will now be removed.")
-    block_roblox_user_level()
+        for domain in ROBLOX_DOMAINS:
+            # Open browser with an invalid IP to simulate block
+            print(f"🚫 Trying to block: {domain}")
+            subprocess.Popen([
+                "cmd", "/c", f"start chrome --new-window --host-rules='MAP {domain} 127.0.0.1'"
+            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception as e:
+        print(f"⚠️ Browser domain redirection failed: {e}")
+
+# Kills any running Roblox processes
+def kill_roblox_processes():
+    for proc in ["RobloxPlayerBeta.exe", "RobloxPlayerLauncher.exe"]:
+        try:
+            subprocess.run(["taskkill", "/f", "/im", proc], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
 
 def main():
-    signal.signal(signal.SIGINT, handle_exit)
-    signal.signal(signal.SIGTERM, handle_exit)
+    print("🔎 Searching and removing Roblox executables...")
+    kill_roblox_processes()
+    find_and_delete_roblox_exes()
 
-    try:
-        wait_hours = float(input("⏳ Enter wait time in hours before blocking Roblox: "))
-        if wait_hours <= 0:
-            print("Please enter a number greater than 0.")
-            return
-    except ValueError:
-        print("❌ Invalid number.")
-        return
+    print("\n🌐 Attempting to block Roblox domain in browser session...")
+    open_blocked_tab()
 
-    wait_then_block(wait_hours)
+    print("\n🎉 Done! This works without admin rights.")
 
 if __name__ == "__main__":
     main()
