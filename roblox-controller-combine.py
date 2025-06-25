@@ -1,4 +1,4 @@
- #!/usr/bin/python
+#!/usr/bin/python
 # by nu11secur1ty
 import os
 import sys
