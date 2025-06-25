@@ -8,6 +8,8 @@ import signal
 import ctypes
 import subprocess
 import shutil
+import string
+
 import win32api
 import win32con
 
@@ -152,32 +154,45 @@ def uninstall_roblox_app():
     if not found:
         print("🎉 Roblox appears to be already uninstalled.")
 
-def remove_roblox_exe_files_all_users():
-    print("\n🧹 Scanning system for Roblox .exe files...")
-    search_roots = [
-        r"C:\Users",
-        r"C:\Windows\Temp",
-        r"C:\ProgramData",
-        r"C:\Program Files",
-        r"C:\Program Files (x86)"
-    ]
+def get_fixed_drives():
+    drives = []
+    bitmask = ctypes.windll.kernel32.GetLogicalDrives()
+    for letter in string.ascii_uppercase:
+        if bitmask & 1:
+            drive_path = f"{letter}:\\"
+            if ctypes.windll.kernel32.GetDriveTypeW(drive_path) == 3:  # DRIVE_FIXED = 3
+                drives.append(drive_path)
+        bitmask >>= 1
+    return drives
 
+def remove_all_roblox_exe_files():
+    print("\n🧹 Scanning all fixed drives for Roblox .exe files...")
+    drives = get_fixed_drives()
     removed = 0
-    for root_dir in search_roots:
-        for root, _, files in os.walk(root_dir):
+    found_files = []
+
+    for drive in drives:
+        for root, _, files in os.walk(drive):
             for file in files:
-                if file.lower().startswith("roblox") and file.lower().endswith(".exe"):
+                if "roblox" in file.lower() and file.lower().endswith(".exe"):
                     full_path = os.path.join(root, file)
+                    found_files.append(full_path)
                     try:
                         os.remove(full_path)
                         print(f"🗑️ Deleted: {full_path}")
                         removed += 1
                     except Exception as e:
                         print(f"⚠️ Could not delete {full_path}: {e}")
+
     if removed == 0:
-        print("ℹ️ No .exe files found.")
+        if found_files:
+            print("⚠️ Found Roblox .exe files but couldn't delete them (permission issues?).")
+            for f in found_files:
+                print(f"  -> {f}")
+        else:
+            print("ℹ️ No Roblox .exe files found.")
     else:
-        print(f"✅ Deleted {removed} .exe files.")
+        print(f"✅ Deleted {removed} Roblox .exe files.")
 
 def limited_cleanup():
     print("\n🔧 Limited cleanup (process kill, AppData removal, rename .exe)...")
@@ -191,38 +206,40 @@ def full_block_and_uninstall():
     block_domains()
     block_roblox_firewall()
     uninstall_roblox_app()
-    print("✅ Completed all steps except final exe removal.")
-
-def cleanup_and_exit():
-    try:
-        full_block_and_uninstall()
-    finally:
-        # ALWAYS delete all Roblox exe files here, no matter what happened before
-        remove_roblox_exe_files_all_users()
-        print("✅ Final Roblox exe files removal done.")
+    remove_all_roblox_exe_files()
+    print("✅ All cleanup completed. Exiting.")
     sys.exit(0)
 
 def handle_exit_signal(signum, frame):
     print("\n🚨 Exit signal caught! Performing cleanup now...")
-    cleanup_and_exit()
-
-def console_ctrl_handler(event):
-    if event == win32con.CTRL_CLOSE_EVENT:
-        print("\n🚨 Console window is closing! Running cleanup...")
-        cleanup_and_exit()
-        return True
-    return False
+    full_block_and_uninstall()
 
 def get_wait_time_hours():
+    print("\n⏳ Choose Roblox allowed access time:")
+    print("  1) 1 hour")
+    print("  2) 2 hours")
+    print("  3) 3 hours")
+    print("  4) Custom time in hours")
     while True:
-        try:
-            hours = float(input("⏳ Enter wait time in hours before blocking Roblox (e.g., 2.5): "))
-            if hours <= 0:
-                print("Please enter a valid positive number.")
-                continue
-            return hours
-        except ValueError:
-            print("❌ Invalid input.")
+        choice = input("Select option (1-4): ").strip()
+        if choice == '1':
+            return 1.0
+        elif choice == '2':
+            return 2.0
+        elif choice == '3':
+            return 3.0
+        elif choice == '4':
+            while True:
+                try:
+                    hours = float(input("Enter custom hours (positive number): ").strip())
+                    if hours > 0:
+                        return hours
+                    else:
+                        print("Please enter a positive number.")
+                except ValueError:
+                    print("Invalid input. Please enter a numeric value.")
+        else:
+            print("Invalid option. Please choose 1, 2, 3, or 4.")
 
 def main():
     if not is_admin():
@@ -232,20 +249,19 @@ def main():
     signal.signal(signal.SIGINT, handle_exit_signal)
     signal.signal(signal.SIGTERM, handle_exit_signal)
 
-    win32api.SetConsoleCtrlHandler(console_ctrl_handler, True)
-
     print("✅ Running with Administrator privileges.")
     unblock_domains()
     limited_cleanup()
 
     wait_hours = get_wait_time_hours()
-    print(f"⏳ Roblox access allowed for {wait_hours} hour(s). Press Ctrl+C or close terminal to stop early.")
+    print(f"\n⏳ Roblox access allowed for {wait_hours} hour(s). Press Ctrl+C or close terminal to stop early.")
+
     try:
         time.sleep(wait_hours * 3600)
     except KeyboardInterrupt:
         print("\n🛑 Interrupted — starting cleanup.")
 
-    cleanup_and_exit()
+    full_block_and_uninstall()
 
 if __name__ == "__main__":
     main()
