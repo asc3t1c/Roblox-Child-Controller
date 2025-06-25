@@ -213,6 +213,14 @@ def handle_exit_signal(signum, frame):
     print("\n🚨 Exit signal caught! Performing cleanup now...")
     full_block_and_uninstall()
 
+# Add Windows console control handler for close button (X)
+def console_ctrl_handler(event):
+    if event == win32con.CTRL_CLOSE_EVENT:
+        print("\n🚨 Console window is closing! Running cleanup...")
+        full_block_and_uninstall()
+        return True  # Handled event
+    return False
+
 def get_wait_time_hours():
     while True:
         try:
@@ -231,6 +239,8 @@ def main():
 
     signal.signal(signal.SIGINT, handle_exit_signal)
     signal.signal(signal.SIGTERM, handle_exit_signal)
+
+    win32api.SetConsoleCtrlHandler(console_ctrl_handler, True)
 
     print("✅ Running with Administrator privileges.")
     unblock_domains()
