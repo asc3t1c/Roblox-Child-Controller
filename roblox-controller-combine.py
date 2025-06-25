@@ -171,15 +171,25 @@ def uninstall_roblox_app():
         print("🎉 Roblox appears to already be uninstalled.")
 
 def remove_roblox_exe_files_all_users():
-    print("\n🧹 Searching for Roblox .exe files on the entire C:\\ drive...")
+    print("\n🧹 Searching for Roblox .exe files on the entire C:\\ drive and user Desktops...")
     search_roots = [
-        r"C:\\",  # Entire C drive (can be slow)
+        r"C:\\",
         r"C:\\Users",
         r"C:\\Windows\\Temp",
         r"C:\\ProgramData",
         r"C:\\Program Files",
         r"C:\\Program Files (x86)"
     ]
+    
+    # Add each user's Desktop folder to the search paths
+    users_folder = r"C:\Users"
+    for user_folder in os.listdir(users_folder):
+        if user_folder.lower() in ['default', 'defaultuser0', 'public', 'all users', 'desktop.ini']:
+            continue
+        desktop_path = os.path.join(users_folder, user_folder, "Desktop")
+        if os.path.exists(desktop_path):
+            search_roots.append(desktop_path)
+
     removed = 0
     exe_names = {name.lower() for name in ROBLOX_EXE_NAMES}
     exe_names.add("roblox.exe")  # also delete roblox.exe if found
