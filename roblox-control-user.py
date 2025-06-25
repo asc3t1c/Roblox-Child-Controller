@@ -10,114 +10,103 @@ USER = os.getlogin()
 LOCAL_ROBLOX_PATH = os.path.join("C:\\Users", USER, "AppData", "Local", "Roblox")
 
 HOSTS_PATH = r"C:\Windows\System32\drivers\etc\hosts"
-REDIRECT_IP = "127.0.0.1"
 DOMAINS = ["www.roblox.com", "roblox.com"]
+REDIRECT_IP = "127.0.0.1"
 BLOCK_ENTRIES = [f"{REDIRECT_IP} {domain}\n" for domain in DOMAINS]
 
 def kill_roblox_processes():
-    # Kill any RobloxPlayer*.exe process
     try:
-        # List all running processes and kill those matching pattern
-        output = subprocess.check_output('tasklist', shell=True, text=True)
-        for line in output.splitlines():
-            parts = line.split()
-            if not parts:
-                continue
-            proc_name = parts[0]
-            if proc_name.lower().startswith("robloxplayer") and proc_name.lower().endswith(".exe"):
-                try:
-                    subprocess.run(["taskkill", "/F", "/IM", proc_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    print(f"🔪 Killed process: {proc_name}")
-                except Exception as e:
-                    print(f"⚠️ Failed to kill {proc_name}: {e}")
+        tasks = subprocess.check_output("tasklist", shell=True, text=True).splitlines()
+        for task in tasks:
+            name = task.split()[0]
+            if name.lower().startswith("robloxplayer") and name.lower().endswith(".exe"):
+                subprocess.run(["taskkill", "/F", "/IM", name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                print(f"🔪 Killed process: {name}")
     except Exception as e:
-        print(f"⚠️ Could not list running processes: {e}")
-
-def delete_local_roblox_folder():
-    if os.path.exists(LOCAL_ROBLOX_PATH):
-        try:
-            shutil.rmtree(LOCAL_ROBLOX_PATH)
-            print(f"🗑️ Deleted local Roblox folder: {LOCAL_ROBLOX_PATH}")
-        except Exception as e:
-            print(f"❌ Failed to delete Roblox folder: {e}")
-    else:
-        print("ℹ️ Roblox folder not found.")
+        print(f"⚠️ Error killing Roblox processes: {e}")
 
 def delete_roblox_exe_files():
-    print("🧹 Searching for RobloxPlayer*.exe files in user-accessible locations...")
-
+    print("🧹 Searching for RobloxPlayer*.exe files...")
     search_dirs = [
         LOCAL_ROBLOX_PATH,
         os.environ.get("TEMP", r"C:\Windows\Temp"),
         os.path.join("C:\\Users", USER, "Downloads")
     ]
 
-    count = 0
+    deleted = 0
     for root_dir in search_dirs:
         for root, _, files in os.walk(root_dir):
             for file in files:
-                fname_lower = file.lower()
-                if fname_lower.startswith("robloxplayer") and fname_lower.endswith(".exe"):
-                    full_path = os.path.join(root, file)
+                if file.lower().startswith("robloxplayer") and file.lower().endswith(".exe"):
                     try:
-                        os.remove(full_path)
-                        print(f"🗑️ Deleted: {full_path}")
-                        count += 1
+                        os.remove(os.path.join(root, file))
+                        print(f"🗑️ Deleted: {os.path.join(root, file)}")
+                        deleted += 1
                     except Exception as e:
-                        print(f"⚠️ Could not delete {full_path}: {e}")
-    if count == 0:
-        print("ℹ️ No RobloxPlayer*.exe files deleted (none found or access denied).")
+                        print(f"⚠️ Could not delete {file}: {e}")
+    if deleted == 0:
+        print("ℹ️ No RobloxPlayer .exe files were deleted.")
     else:
-        print(f"✅ Removed {count} RobloxPlayer*.exe file(s).")
+        print(f"✅ Deleted {deleted} RobloxPlayer .exe files.")
 
-def block_roblox_domains():
+def delete_local_roblox_folder():
+    if os.path.exists(LOCAL_ROBLOX_PATH):
+        try:
+            shutil.rmtree(LOCAL_ROBLOX_PATH)
+            print(f"🗑️ Deleted Roblox folder: {LOCAL_ROBLOX_PATH}")
+        except Exception as e:
+            print(f"❌ Could not delete Roblox folder: {e}")
+    else:
+        print("ℹ️ Roblox folder not found.")
+
+def block_domains():
     try:
-        with open(HOSTS_PATH, 'r+') as hosts_file:
-            lines = hosts_file.readlines()
-            hosts_file.seek(0, os.SEEK_END)  # Go to file end
+        with open(HOSTS_PATH, 'r+', encoding="utf-8") as f:
+            lines = f.readlines()
+            f.seek(0, os.SEEK_END)
             for entry in BLOCK_ENTRIES:
                 if entry not in lines:
-                    hosts_file.write(entry)
+                    f.write(entry)
                     print(f"🚫 Blocked domain: {entry.strip().split()[1]}")
-        print("✅ Roblox domains blocked in hosts file.")
+        print("✅ Roblox domains blocked.")
     except PermissionError:
-        print("⚠️ Permission denied: Cannot modify hosts file. Run as admin to block domains.")
+        print("⚠️ Cannot block domains — run as administrator.")
     except Exception as e:
-        print(f"❌ Failed to block domains: {e}")
+        print(f"❌ Failed to modify hosts file: {e}")
 
-def block_roblox_user_level():
+def block_roblox():
     kill_roblox_processes()
-    delete_local_roblox_folder()
     delete_roblox_exe_files()
-    block_roblox_domains()
-    print("✅ Roblox blocked (user-level).")
+    delete_local_roblox_folder()
+    block_domains()
+    print("✅ Roblox blocked successfully.")
 
 def handle_exit(signum, frame):
     print("\n⚠️ Exit signal detected. Blocking Roblox now...")
-    block_roblox_user_level()
+    block_roblox()
     sys.exit(0)
 
 def wait_then_block(hours):
-    seconds = hours * 3600
-    print(f"⏳ Waiting {hours} hour(s)...")
+    seconds = int(hours * 3600)
+    print(f"⏳ Waiting for {hours} hour(s)... Press Ctrl+C to block immediately.")
     try:
         time.sleep(seconds)
     except KeyboardInterrupt:
         handle_exit(None, None)
-    print("\n⏲️ Time's up! Roblox will now be blocked.")
-    block_roblox_user_level()
+    print("\n⏲️ Time's up! Blocking Roblox now...")
+    block_roblox()
 
 def main():
     signal.signal(signal.SIGINT, handle_exit)
     signal.signal(signal.SIGTERM, handle_exit)
 
     try:
-        wait_hours = float(input("⏳ Enter wait time in hours before blocking Roblox: "))
+        wait_hours = float(input("⏳ Enter wait time (in hours) before blocking Roblox: "))
         if wait_hours <= 0:
-            print("Please enter a number greater than 0.")
+            print("⚠️ Please enter a number greater than 0.")
             return
     except ValueError:
-        print("❌ Invalid number.")
+        print("❌ Invalid input.")
         return
 
     wait_then_block(wait_hours)
