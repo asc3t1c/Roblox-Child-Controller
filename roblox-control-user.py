@@ -36,39 +36,44 @@ def kill_roblox_processes():
         except Exception as e:
             print(f"⚠️ Could not kill {proc}: {e}")
 
-def remove_roblox_appdata():
-    user = os.getlogin()
-    appdata_path = rf"C:\Users\{user}\AppData\Local\Roblox"
-    max_attempts = 5
-    for attempt in range(max_attempts):
+def delete_roblox_appdata_for_all_users():
+    users_folder = r"C:\Users"
+    removed_any = False
+    for user_folder in os.listdir(users_folder):
+        # Skip default/system users
+        if user_folder.lower() in ['default', 'defaultuser0', 'public', 'all users', 'desktop.ini']:
+            continue
+        appdata_path = os.path.join(users_folder, user_folder, "AppData", "Local", "Roblox")
         if os.path.exists(appdata_path):
             try:
                 shutil.rmtree(appdata_path)
-                print(f"🗑️ Removed Roblox AppData: {appdata_path}")
-                return True
+                print(f"🗑️ Removed Roblox AppData for user '{user_folder}': {appdata_path}")
+                removed_any = True
             except Exception as e:
-                print(f"❌ Attempt {attempt+1}: Failed to remove AppData folder: {e}")
-                time.sleep(2)
+                print(f"❌ Failed to remove Roblox AppData for user '{user_folder}': {e}")
         else:
-            print("ℹ️ Roblox AppData folder not found.")
-            return True
-    print("⚠️ Failed to remove Roblox AppData after multiple attempts.")
-    return False
+            print(f"ℹ️ No Roblox AppData for user '{user_folder}'")
+    if not removed_any:
+        print("ℹ️ No Roblox AppData folders found for any user.")
 
-def find_roblox_executables():
-    user = os.getlogin()
-    base_path = rf"C:\Users\{user}\AppData\Local\Roblox\Versions"
+def find_roblox_executables_all_users():
+    users_folder = r"C:\Users"
     executables = []
-    if os.path.exists(base_path):
-        for root, _, files in os.walk(base_path):
-            for file in files:
-                if file.lower() in (name.lower() for name in ROBLOX_EXE_NAMES):
-                    executables.append(os.path.join(root, file))
+    for user_folder in os.listdir(users_folder):
+        # Skip default/system users
+        if user_folder.lower() in ['default', 'defaultuser0', 'public', 'all users', 'desktop.ini']:
+            continue
+        base_path = os.path.join(users_folder, user_folder, "AppData", "Local", "Roblox", "Versions")
+        if os.path.exists(base_path):
+            for root, _, files in os.walk(base_path):
+                for file in files:
+                    if file.lower() in (name.lower() for name in ROBLOX_EXE_NAMES):
+                        executables.append(os.path.join(root, file))
     return executables
 
-def rename_roblox_executables():
+def rename_roblox_executables_all_users():
     count = 0
-    paths = find_roblox_executables()
+    paths = find_roblox_executables_all_users()
     if not paths:
         print("ℹ️ No Roblox executables found to rename.")
         return 0
@@ -116,7 +121,7 @@ def unblock_domains():
 
 def block_roblox_firewall():
     try:
-        roblox_paths = find_roblox_executables()
+        roblox_paths = find_roblox_executables_all_users()
         if not roblox_paths:
             print("ℹ️ No Roblox executables found for firewall blocking.")
             return
@@ -135,8 +140,7 @@ def uninstall_roblox_app():
     print("\n🪑 Starting Roblox Player uninstall...")
     kill_roblox_processes()
 
-    if not remove_roblox_appdata():
-        print("⚠️ Proceeding even though AppData folder removal failed.")
+    delete_roblox_appdata_for_all_users()
 
     found = False
 
@@ -175,11 +179,11 @@ def uninstall_roblox_app():
     if not found:
         print("🎉 Roblox appears to already be uninstalled.")
 
-def remove_roblox_exe_files():
-    print("\n🧹 Searching for Roblox .exe files...")
+def remove_roblox_exe_files_all_users():
+    print("\n🧹 Searching for Roblox .exe files for all users...")
 
     search_roots = [
-        os.environ.get("USERPROFILE", r"C:\Users"),
+        r"C:\Users",
         r"C:\Windows\Temp",
         r"C:\ProgramData",
         r"C:\Program Files",
@@ -204,31 +208,26 @@ def remove_roblox_exe_files():
         print(f"✅ Removed {removed} Roblox .exe file(s).")
 
 def limited_cleanup():
-    print("\n🔧 Running limited cleanup (kill processes, remove AppData, rename exe)...")
+    print("\n🔧 Running limited cleanup (kill processes, delete appdata for all users, rename exe for all users)...")
     kill_roblox_processes()
-    remove_roblox_appdata()
-    rename_roblox_executables()
+    delete_roblox_appdata_for_all_users()
+    rename_roblox_executables_all_users()
 
-def full_block_and_uninstall(admin_mode):
-    # Run limited cleanup first
+def full_block_and_uninstall():
     limited_cleanup()
 
-    # Then if admin, run full blocking
-    if admin_mode:
-        print("\n🔒 Running admin-level blocking and uninstall...")
-        block_domains()
-        block_roblox_firewall()
-        uninstall_roblox_app()
-        remove_roblox_exe_files()
-    else:
-        print("\n⚠️ Not running as admin — skipping domain blocking and uninstall.")
+    print("\n🔒 Running admin-level blocking and uninstall...")
+    block_domains()
+    block_roblox_firewall()
+    uninstall_roblox_app()
+    remove_roblox_exe_files_all_users()
 
     print("🚪 Cleanup and blocking done. Exiting.")
     sys.exit(0)
 
 def handle_exit_signal(signum, frame):
     print("\n🚨 Exit signal caught! Running cleanup and blocking now...")
-    full_block_and_uninstall(is_admin())
+    full_block_and_uninstall()
 
 def get_wait_time_hours():
     while True:
@@ -242,11 +241,14 @@ def get_wait_time_hours():
             print("❌ Invalid input. Enter a number like 3 or 1.5.")
 
 def main():
+    if not is_admin():
+        print("❌ This script must be run as Administrator!")
+        sys.exit(1)
+
     signal.signal(signal.SIGINT, handle_exit_signal)
     signal.signal(signal.SIGTERM, handle_exit_signal)
 
-    admin = is_admin()
-    print(f"🛡️ Running as admin: {admin}")
+    print(f"🛡️ Running as admin: True")
 
     print("Step 1: Unblocking Roblox domains if needed...")
     unblock_domains()
@@ -254,18 +256,14 @@ def main():
     print("\nStep 2: Initial limited cleanup...")
     limited_cleanup()
 
-    if admin:
-        wait_hours = get_wait_time_hours()
-        print(f"⏳ Waiting {wait_hours} hour(s)... Roblox is accessible until then. Press Ctrl+C to block now.")
-        try:
-            time.sleep(wait_hours * 3600)
-        except KeyboardInterrupt:
-            print("\n🛑 Interrupted early - proceeding with cleanup...")
+    wait_hours = get_wait_time_hours()
+    print(f"⏳ Waiting {wait_hours} hour(s)... Roblox is accessible until then. Press Ctrl+C to block now.")
+    try:
+        time.sleep(wait_hours * 3600)
+    except KeyboardInterrupt:
+        print("\n🛑 Interrupted early - proceeding with cleanup...")
 
-        full_block_and_uninstall(admin_mode=True)
-    else:
-        print("\n⚠️ Not admin — limited cleanup done, exiting now.")
-        sys.exit(0)
+    full_block_and_uninstall()
 
 if __name__ == "__main__":
     main()
