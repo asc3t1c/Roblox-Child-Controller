@@ -1,3 +1,6 @@
+#!/usr/bin/python
+# by nu11secur1ty
+
 import os
 import sys
 import time
@@ -7,7 +10,6 @@ import subprocess
 import shutil
 import win32api
 import win32con
-import atexit
 
 HOSTS_PATH = r"C:\Windows\System32\drivers\etc\hosts"
 REDIRECT_IP = "127.0.0.1"
@@ -22,8 +24,6 @@ ROBLOX_EXE_NAMES = [
     "RobloxStudioBeta.exe"
 ]
 
-cleanup_ran = False
-
 def is_admin():
     try:
         return ctypes.windll.shell32.IsUserAnAdmin()
@@ -37,6 +37,17 @@ def kill_roblox_processes():
             print(f"🔪 Killed process: {proc}")
         except Exception as e:
             print(f"⚠️ Could not kill {proc}: {e}")
+
+def force_kill_roblox_processes():
+    print("🔍 Checking for Roblox processes...")
+    try:
+        output = subprocess.check_output(['tasklist'], text=True)
+        for name in ROBLOX_EXE_NAMES:
+            if name.lower() in output.lower():
+                subprocess.run(['taskkill', '/F', '/IM', name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                print(f"🔪 Force killed: {name}")
+    except Exception as e:
+        print(f"⚠️ Error checking processes: {e}")
 
 def delete_roblox_appdata_for_all_users():
     users_folder = r"C:\Users"
@@ -154,6 +165,8 @@ def uninstall_roblox_app():
 
 def remove_roblox_exe_files_all_users():
     print("\n🧹 Scanning system for Roblox .exe files...")
+    force_kill_roblox_processes()
+
     search_roots = [
         r"C:\Users",
         r"C:\Windows\Temp",
@@ -169,13 +182,14 @@ def remove_roblox_exe_files_all_users():
                 if file.lower().startswith("roblox") and file.lower().endswith(".exe"):
                     full_path = os.path.join(root, file)
                     try:
+                        os.chmod(full_path, 0o777)  # Ensure writable
                         os.remove(full_path)
                         print(f"🗑️ Deleted: {full_path}")
                         removed += 1
                     except Exception as e:
                         print(f"⚠️ Could not delete {full_path}: {e}")
     if removed == 0:
-        print("ℹ️ No .exe files found.")
+        print("ℹ️ No .exe files found or all were protected.")
     else:
         print(f"✅ Deleted {removed} .exe files.")
 
@@ -186,27 +200,18 @@ def limited_cleanup():
     rename_roblox_executables_all_users()
 
 def full_block_and_uninstall():
-    global cleanup_ran
-    if cleanup_ran:
-        return
-    cleanup_ran = True
-    print("\n🔒 Running full cleanup...")
     limited_cleanup()
+    print("\n🔒 Admin-level cleanup...")
     block_domains()
     block_roblox_firewall()
     uninstall_roblox_app()
     remove_roblox_exe_files_all_users()
-    print("✅ Cleanup complete.")
+    print("✅ All cleanup completed. Exiting.")
+    sys.exit(0)
 
-def on_exit():
+def handle_exit_signal(signum, frame):
+    print("\n🚨 Exit signal caught! Performing cleanup now...")
     full_block_and_uninstall()
-
-def handle_ctrl_events(ctrl_type):
-    if ctrl_type in (win32con.CTRL_CLOSE_EVENT, win32con.CTRL_LOGOFF_EVENT, win32con.CTRL_SHUTDOWN_EVENT):
-        print("\n🛑 Windows is closing — cleaning up...")
-        full_block_and_uninstall()
-        time.sleep(2)  # Give time to see the message
-    return True
 
 def get_wait_time_hours():
     while True:
@@ -221,28 +226,24 @@ def get_wait_time_hours():
 
 def main():
     if not is_admin():
-        print("🛡️ Requesting Administrator rights...")
-        ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, __file__, None, 1)
-        sys.exit(0)
+        print("❌ You must run this script as Administrator!")
+        sys.exit(1)
 
-    atexit.register(on_exit)
-    win32api.SetConsoleCtrlHandler(handle_ctrl_events, True)
-    signal.signal(signal.SIGINT, lambda s, f: on_exit())
-    signal.signal(signal.SIGTERM, lambda s, f: on_exit())
+    signal.signal(signal.SIGINT, handle_exit_signal)
+    signal.signal(signal.SIGTERM, handle_exit_signal)
 
     print("✅ Running with Administrator privileges.")
     unblock_domains()
     limited_cleanup()
 
     wait_hours = get_wait_time_hours()
-    print(f"⏳ Roblox access allowed for {wait_hours} hour(s). Close this window or press Ctrl+C to trigger cleanup.")
+    print(f"⏳ Roblox access allowed for {wait_hours} hour(s). Press Ctrl+C or close terminal to stop early.")
     try:
         time.sleep(wait_hours * 3600)
     except KeyboardInterrupt:
-        print("\n🛑 Interrupted by user.")
+        print("\n🛑 Interrupted — starting cleanup.")
 
     full_block_and_uninstall()
-    input("✅ Press Enter to exit...")
 
 if __name__ == "__main__":
     main()
