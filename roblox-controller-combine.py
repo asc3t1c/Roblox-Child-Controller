@@ -9,6 +9,7 @@ import subprocess
 import shutil
 import win32api
 import win32con
+import fnmatch
 
 HOSTS_PATH = r"C:\Windows\System32\drivers\etc\hosts"
 REDIRECT_IP = "127.0.0.1"
@@ -170,9 +171,11 @@ def uninstall_roblox_app():
     if not found:
         print("🎉 Roblox appears to already be uninstalled.")
 
-def delete_roblox_exe_windows():
-    exe_pattern = "roblox"
+def delete_robloxplayer_executables():
+    pattern = "RobloxPlayer*.exe"
     removed_count = 0
+
+    # Add Desktop for current user and other common directories
     search_roots = [
         r"C:\Users",
         r"C:\ProgramData",
@@ -180,14 +183,13 @@ def delete_roblox_exe_windows():
         r"C:\Program Files (x86)",
         r"C:\Windows\Temp",
         os.path.join(os.environ.get("USERPROFILE", r"C:\Users\Default"), "Desktop"),
-        r"C:\"
+        "C:\\"
     ]
 
     for root_dir in search_roots:
-        print(f"🔍 Searching in: {root_dir}")
         for root, dirs, files in os.walk(root_dir):
             for file in files:
-                if file.lower().startswith(exe_pattern) and file.lower().endswith(".exe"):
+                if fnmatch.fnmatch(file.lower(), pattern.lower()):
                     full_path = os.path.join(root, file)
                     try:
                         os.remove(full_path)
@@ -196,7 +198,7 @@ def delete_roblox_exe_windows():
                     except Exception as e:
                         print(f"⚠️ Failed to delete {full_path}: {e}")
 
-    print(f"✅ Total 'roblox*.exe' files deleted: {removed_count}")
+    print(f"✅ Total '{pattern}' files deleted: {removed_count}")
 
 def limited_cleanup():
     print("\n🔧 Running limited cleanup (kill processes, delete appdata, rename executables)...")
@@ -210,7 +212,7 @@ def full_block_and_uninstall():
     block_domains()
     block_roblox_firewall()
     uninstall_roblox_app()
-    delete_roblox_exe_windows()  # <--- This deletes all roblox*.exe files
+    delete_robloxplayer_executables()
     print("🚪 Cleanup and blocking complete. Exiting.")
     sys.exit(0)
 
