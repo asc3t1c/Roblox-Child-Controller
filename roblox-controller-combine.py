@@ -183,8 +183,6 @@ def delete_robloxplayer_executables_all_users():
 
     for user_folder in os.listdir(users_dir):
         user_path = os.path.join(users_dir, user_folder)
-
-        # Skip known system/default folders
         if user_folder.lower() in ['default', 'defaultuser0', 'public', 'all users', 'desktop.ini']:
             continue
 
@@ -219,7 +217,7 @@ def full_block_and_uninstall():
     uninstall_roblox_app()
     delete_robloxplayer_executables_all_users()
     print("🚪 Cleanup and blocking complete. Exiting.")
-    sys.exit(0)
+    os._exit(0)  # 🔴 Ensures process terminates
 
 def handle_exit_signal(signum, frame):
     print("\n🚨 Exit signal caught! Running cleanup...")
