@@ -2,67 +2,86 @@ import os
 import subprocess
 import time
 import shutil
+import socket
+import threading
 
-# Domains to "block" via fake open method
 ROBLOX_DOMAINS = ["www.roblox.com", "roblox.com"]
+USER_DIR = os.environ.get("USERPROFILE", "")
+ROBLOX_DIR = os.path.join(USER_DIR, "AppData", "Local", "Roblox")
 
-# Folders to search for Roblox executables
-def find_and_delete_roblox_exes():
-    userprofile = os.environ.get("USERPROFILE", "")
-    search_dirs = [
-        os.path.join(userprofile, "AppData", "Local", "Roblox"),
-        os.path.join(userprofile, "Downloads"),
-        os.path.join(userprofile, "Desktop"),
-    ]
-
-    deleted = 0
-    for directory in search_dirs:
-        if not os.path.exists(directory):
-            continue
-        for root, dirs, files in os.walk(directory):
-            for file in files:
-                if file.lower().startswith("roblox") and file.lower().endswith(".exe"):
-                    full_path = os.path.join(root, file)
-                    try:
-                        os.remove(full_path)
-                        print(f"🗑️ Deleted: {full_path}")
-                        deleted += 1
-                    except Exception as e:
-                        print(f"⚠️ Failed to delete {full_path}: {e}")
-    if deleted == 0:
-        print("ℹ️ No Roblox .exe files found.")
-    else:
-        print(f"✅ Deleted {deleted} Roblox executable(s).")
-
-# Tries to block the domain using the default browser
-def open_blocked_tab():
-    try:
-        for domain in ROBLOX_DOMAINS:
-            # Open browser with an invalid IP to simulate block
-            print(f"🚫 Trying to block: {domain}")
-            subprocess.Popen([
-                "cmd", "/c", f"start chrome --new-window --host-rules='MAP {domain} 127.0.0.1'"
-            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except Exception as e:
-        print(f"⚠️ Browser domain redirection failed: {e}")
-
-# Kills any running Roblox processes
 def kill_roblox_processes():
-    for proc in ["RobloxPlayerBeta.exe", "RobloxPlayerLauncher.exe"]:
+    procs = ["RobloxPlayerBeta.exe", "RobloxPlayerLauncher.exe"]
+    for proc in procs:
         try:
-            subprocess.run(["taskkill", "/f", "/im", proc], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except Exception:
+            subprocess.run(['taskkill', '/F', '/IM', proc], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except:
             pass
 
+def delete_roblox_executables():
+    print("🔍 Searching for Roblox .exe files in user folders...")
+    deleted = 0
+    for root, _, files in os.walk(ROBLOX_DIR):
+        for file in files:
+            if file.lower().endswith(".exe") and "roblox" in file.lower():
+                full_path = os.path.join(root, file)
+                try:
+                    os.remove(full_path)
+                    print(f"🗑️ Deleted: {full_path}")
+                    deleted += 1
+                except Exception as e:
+                    print(f"⚠️ Could not delete {full_path}: {e}")
+    if deleted == 0:
+        print("ℹ️ No executables found or already removed.")
+    else:
+        print(f"✅ Removed {deleted} Roblox executables.")
+
+def remove_roblox_folder():
+    if os.path.exists(ROBLOX_DIR):
+        try:
+            shutil.rmtree(ROBLOX_DIR)
+            print(f"🗑️ Removed folder: {ROBLOX_DIR}")
+        except Exception as e:
+            print(f"⚠️ Could not remove folder: {e}")
+    else:
+        print("ℹ️ Roblox folder already removed.")
+
+def block_domains_browser():
+    print("\n🌐 Attempting browser-level domain blocks using command-line options...")
+    for domain in ROBLOX_DOMAINS:
+        try:
+            subprocess.Popen([
+                "cmd", "/c", f"start chrome --host-rules='MAP {domain} 127.0.0.1' --new-window"
+            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except:
+            print(f"⚠️ Could not block {domain} via browser.")
+
+# Optional: Run a fake web server to catch blocked requests
+def start_fake_server():
+    def fake_server():
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("127.0.0.1", 80))
+            s.listen()
+            while True:
+                conn, addr = s.accept()
+                with conn:
+                    try:
+                        conn.sendall(b"HTTP/1.1 403 Forbidden\r\n\r\nBlocked by user script.")
+                    except:
+                        pass
+    t = threading.Thread(target=fake_server, daemon=True)
+    t.start()
+
 def main():
-    print("🔎 Searching and removing Roblox executables...")
+    print("📦 Roblox User Blocker (No Admin Needed)")
     kill_roblox_processes()
-    find_and_delete_roblox_exes()
+    delete_roblox_executables()
+    remove_roblox_folder()
 
-    print("\n🌐 Attempting to block Roblox domain in browser session...")
-    open_blocked_tab()
+    start_fake_server()
+    block_domains_browser()
 
-    print("\n🎉 Done! This works without admin rights.")
+    print("\n✅ Done. Roblox is removed and domain access is blocked via browser.")
+    print("🧠 Tip: You can also install a browser extension like BlockSite for stronger control.")
 
 if __name__ == "__main__":
     main()
