@@ -44,3 +44,14 @@ python roblox-control-admin.py
 ```
 
 - Pressing Ctrl+C during the waiting period will run the uninstall/cleanup before exiting and leave the domain blocked.
+
+
+### Run as User!
+
+- To block Roblox after some allowed time, run:
+
+```
+python roblox-control-user.py
+```
+
+- Pressing Ctrl+C during the waiting period will run the uninstall/cleanup before exiting and leave the domain blocked.
