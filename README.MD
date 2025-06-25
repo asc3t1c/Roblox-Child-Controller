@@ -40,7 +40,7 @@ How to use
 - To block Roblox after some allowed time, run:
 
 ```
-python roblox-control.py
+python roblox-control-admin.py
 ```
 
 - Pressing Ctrl+C during the waiting period will run the uninstall/cleanup before exiting and leave the domain blocked.
