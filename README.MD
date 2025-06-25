@@ -53,5 +53,9 @@ python roblox-control-admin.py
 ```
 python roblox-control-user.py
 ```
+or
+```
+python roblox-controller-combine.py
+```
 
 - Pressing Ctrl+C during the waiting period will run the uninstall/cleanup before exiting and leave the domain blocked.
