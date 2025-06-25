@@ -116,7 +116,7 @@ def remove_roblox_exe_files():
     for root_dir in search_dirs:
         for root, _, files in os.walk(root_dir):
             for file in files:
-                if file.lower() in [name.lower() for name in ROBLOX_EXE_NAMES]:
+                if file.lower().startswith("roblox") and file.lower().endswith(".exe"):
                     full_path = os.path.join(root, file)
                     try:
                         os.remove(full_path)
@@ -129,15 +129,49 @@ def remove_roblox_exe_files():
     else:
         print(f"✅ Removed {removed} Roblox executable(s).")
 
-def block_everything(admin_mode):
+def uninstall_roblox_app():
+    print("\n🪑 Starting Roblox uninstall...")
     kill_roblox_processes()
     remove_roblox_appdata()
+
+    found = False
+
+    # WMIC uninstall
+    try:
+        output = subprocess.check_output('wmic product get name', shell=True, text=True, errors='ignore')
+        for line in output.splitlines():
+            if "Roblox" in line:
+                print(f"🛠️ Uninstalling Roblox package via WMIC: {line.strip()}")
+                subprocess.run(f'wmic product where name="{line.strip()}" call uninstall /nointeractive', shell=True, check=True)
+                found = True
+                break
+    except Exception as e:
+        print(f"⚠️ WMIC uninstall error: {e}")
+
+    # PowerShell uninstall
+    try:
+        ps_check = subprocess.run(['powershell', '-Command', 'Get-Package -Name *Roblox*'], capture_output=True, text=True)
+        if "Roblox" in ps_check.stdout:
+            print("🛠️ Attempting PowerShell uninstall...")
+            subprocess.run(['powershell', '-Command', 'Get-Package -Name *Roblox* | Uninstall-Package -Force'], capture_output=True, text=True)
+            found = True
+        else:
+            print("✅ PowerShell: No Roblox packages found.")
+    except Exception as e:
+        print(f"⚠️ PowerShell uninstall error: {e}")
+
+    if not found:
+        print("🎉 Roblox app not found or already uninstalled.")
+
+def block_everything(admin_mode):
+    kill_roblox_processes()
+    uninstall_roblox_app()
     rename_roblox_executables()
     if admin_mode:
         block_domains()
         block_firewall()
         remove_roblox_exe_files()
-    print("🚪 Blocking complete. Exiting now.")
+    print("🚪 Blocking and uninstall complete. Exiting now.")
     sys.exit(0)
 
 def handle_exit_signal(signum, frame):
@@ -155,7 +189,7 @@ def main():
     while choice not in ["1", "2"]:
         print("\nChoose mode:")
         print("1) Limited user mode (no admin) - kills Roblox, removes AppData, renames exes")
-        print("2) Full admin mode - does everything including domain and firewall blocking")
+        print("2) Full admin mode - uninstall Roblox, blocks domains/firewall, deletes executables")
         choice = input("Enter 1 or 2: ").strip()
 
     if choice == "2" and not admin:
@@ -174,7 +208,7 @@ def main():
 
     if choice == "2":
         print("🚀 Running in full admin mode...")
-        unblock_domains()  # unblock first to ensure user can browse Roblox until time ends
+        unblock_domains()  # allow Roblox temporarily before blocking
         try:
             hours = float(input("⏳ Enter hours to wait before blocking Roblox (e.g., 1.5): "))
             if hours <= 0:
