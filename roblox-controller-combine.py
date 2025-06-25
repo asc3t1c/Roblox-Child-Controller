@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# by nu11secur1ty
-
 import os
 import sys
 import time
@@ -10,6 +7,7 @@ import subprocess
 import shutil
 import win32api
 import win32con
+import atexit
 
 HOSTS_PATH = r"C:\Windows\System32\drivers\etc\hosts"
 REDIRECT_IP = "127.0.0.1"
@@ -23,6 +21,8 @@ ROBLOX_EXE_NAMES = [
     "RobloxStudioLauncherBeta.exe",
     "RobloxStudioBeta.exe"
 ]
+
+cleanup_ran = False
 
 def is_admin():
     try:
@@ -186,19 +186,27 @@ def limited_cleanup():
     rename_roblox_executables_all_users()
 
 def full_block_and_uninstall():
+    global cleanup_ran
+    if cleanup_ran:
+        return
+    cleanup_ran = True
+    print("\n🔒 Running full cleanup...")
     limited_cleanup()
-    print("\n🔒 Admin-level cleanup...")
     block_domains()
     block_roblox_firewall()
     uninstall_roblox_app()
     remove_roblox_exe_files_all_users()
-    print("✅ All cleanup completed. Exiting.")
-    input("✅ Press Enter to exit...")
-    sys.exit(0)
+    print("✅ Cleanup complete.")
 
-def handle_exit_signal(signum, frame):
-    print("\n🚨 Exit signal caught! Performing cleanup now...")
+def on_exit():
     full_block_and_uninstall()
+
+def handle_ctrl_events(ctrl_type):
+    if ctrl_type in (win32con.CTRL_CLOSE_EVENT, win32con.CTRL_LOGOFF_EVENT, win32con.CTRL_SHUTDOWN_EVENT):
+        print("\n🛑 Windows is closing — cleaning up...")
+        full_block_and_uninstall()
+        time.sleep(2)  # Give time to see the message
+    return True
 
 def get_wait_time_hours():
     while True:
@@ -212,29 +220,29 @@ def get_wait_time_hours():
             print("❌ Invalid input.")
 
 def main():
-    print("🚀 Script launched.")
     if not is_admin():
-        print("🛡️ Requesting administrator privileges...")
-        ctypes.windll.shell32.ShellExecuteW(
-            None, "runas", sys.executable, __file__, None, 1
-        )
+        print("🛡️ Requesting Administrator rights...")
+        ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, __file__, None, 1)
         sys.exit(0)
 
-    signal.signal(signal.SIGINT, handle_exit_signal)
-    signal.signal(signal.SIGTERM, handle_exit_signal)
+    atexit.register(on_exit)
+    win32api.SetConsoleCtrlHandler(handle_ctrl_events, True)
+    signal.signal(signal.SIGINT, lambda s, f: on_exit())
+    signal.signal(signal.SIGTERM, lambda s, f: on_exit())
 
     print("✅ Running with Administrator privileges.")
     unblock_domains()
     limited_cleanup()
 
     wait_hours = get_wait_time_hours()
-    print(f"⏳ Roblox access allowed for {wait_hours} hour(s). Press Ctrl+C or close terminal to stop early.")
+    print(f"⏳ Roblox access allowed for {wait_hours} hour(s). Close this window or press Ctrl+C to trigger cleanup.")
     try:
         time.sleep(wait_hours * 3600)
     except KeyboardInterrupt:
-        print("\n🛑 Interrupted — starting cleanup.")
+        print("\n🛑 Interrupted by user.")
 
     full_block_and_uninstall()
+    input("✅ Press Enter to exit...")
 
 if __name__ == "__main__":
     main()
