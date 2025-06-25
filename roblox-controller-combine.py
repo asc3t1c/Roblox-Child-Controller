@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# by nu11secur1ty
 import os
 import sys
 import time
@@ -40,7 +41,6 @@ def delete_roblox_appdata_for_all_users():
     users_folder = r"C:\Users"
     removed_any = False
     for user_folder in os.listdir(users_folder):
-        # Skip default/system users
         if user_folder.lower() in ['default', 'defaultuser0', 'public', 'all users', 'desktop.ini']:
             continue
         appdata_path = os.path.join(users_folder, user_folder, "AppData", "Local", "Roblox")
@@ -60,7 +60,6 @@ def find_roblox_executables_all_users():
     users_folder = r"C:\Users"
     executables = []
     for user_folder in os.listdir(users_folder):
-        # Skip default/system users
         if user_folder.lower() in ['default', 'defaultuser0', 'public', 'all users', 'desktop.ini']:
             continue
         base_path = os.path.join(users_folder, user_folder, "AppData", "Local", "Roblox", "Versions")
@@ -139,12 +138,9 @@ def block_roblox_firewall():
 def uninstall_roblox_app():
     print("\n🪑 Starting Roblox Player uninstall...")
     kill_roblox_processes()
-
     delete_roblox_appdata_for_all_users()
-
     found = False
 
-    # Try uninstall via WMIC
     try:
         output = subprocess.check_output('wmic product get name', shell=True, text=True)
         for line in output.splitlines():
@@ -159,20 +155,15 @@ def uninstall_roblox_app():
     except Exception as e:
         print(f"⚠️ WMIC uninstall failed: {e}")
 
-    # Try PowerShell uninstall
     try:
-        ps_check = subprocess.run([
-            'powershell', '-Command', 'Get-Package -Name *Roblox*'
-        ], capture_output=True, text=True)
+        ps_check = subprocess.run(['powershell', '-Command', 'Get-Package -Name *Roblox*'], capture_output=True, text=True)
         if "Roblox" in ps_check.stdout:
             print("🛠️ Attempting PowerShell uninstall...")
-            subprocess.run([
-                'powershell', '-Command',
-                'Get-Package -Name *Roblox* | Uninstall-Package -Force'
-            ], capture_output=True, text=True)
+            subprocess.run(['powershell', '-Command', 'Get-Package -Name *Roblox* | Uninstall-Package -Force'],
+                           capture_output=True, text=True)
             found = True
         else:
-            print("✅ PowerShell: No Roblox packages found (likely already removed).")
+            print("✅ PowerShell: No Roblox packages found.")
     except Exception as e:
         print(f"⚠️ PowerShell uninstall failed: {e}")
 
@@ -181,7 +172,6 @@ def uninstall_roblox_app():
 
 def remove_roblox_exe_files_all_users():
     print("\n🧹 Searching for Roblox .exe files for all users...")
-
     search_roots = [
         r"C:\Users",
         r"C:\Windows\Temp",
@@ -189,7 +179,6 @@ def remove_roblox_exe_files_all_users():
         r"C:\Program Files",
         r"C:\Program Files (x86)"
     ]
-
     removed = 0
     for root_dir in search_roots:
         for root, _, files in os.walk(root_dir):
@@ -208,26 +197,34 @@ def remove_roblox_exe_files_all_users():
         print(f"✅ Removed {removed} Roblox .exe file(s).")
 
 def limited_cleanup():
-    print("\n🔧 Running limited cleanup (kill processes, delete appdata for all users, rename exe for all users)...")
+    print("\n🔧 Running limited cleanup (kill processes, delete appdata, rename executables)...")
     kill_roblox_processes()
     delete_roblox_appdata_for_all_users()
     rename_roblox_executables_all_users()
 
 def full_block_and_uninstall():
     limited_cleanup()
-
     print("\n🔒 Running admin-level blocking and uninstall...")
     block_domains()
     block_roblox_firewall()
     uninstall_roblox_app()
     remove_roblox_exe_files_all_users()
-
-    print("🚪 Cleanup and blocking done. Exiting.")
+    print("🚪 Cleanup and blocking complete. Exiting.")
     sys.exit(0)
 
 def handle_exit_signal(signum, frame):
-    print("\n🚨 Exit signal caught! Running cleanup and blocking now...")
+    print("\n🚨 Exit signal caught! Running cleanup...")
     full_block_and_uninstall()
+
+def console_ctrl_handler(event):
+    if event in (
+        win32con.CTRL_C_EVENT, win32con.CTRL_BREAK_EVENT,
+        win32con.CTRL_CLOSE_EVENT, win32con.CTRL_LOGOFF_EVENT, win32con.CTRL_SHUTDOWN_EVENT
+    ):
+        print("\n🔌 Console close or system signal detected — running cleanup...")
+        full_block_and_uninstall()
+        return True
+    return False
 
 def get_wait_time_hours():
     while True:
@@ -247,6 +244,7 @@ def main():
 
     signal.signal(signal.SIGINT, handle_exit_signal)
     signal.signal(signal.SIGTERM, handle_exit_signal)
+    win32api.SetConsoleCtrlHandler(console_ctrl_handler, True)
 
     print(f"🛡️ Running as admin: True")
 
@@ -257,7 +255,7 @@ def main():
     limited_cleanup()
 
     wait_hours = get_wait_time_hours()
-    print(f"⏳ Waiting {wait_hours} hour(s)... Roblox is accessible until then. Press Ctrl+C to block now.")
+    print(f"⏳ Waiting {wait_hours} hour(s)... Roblox is accessible until then. Press Ctrl+C or close the window to block now.")
     try:
         time.sleep(wait_hours * 3600)
     except KeyboardInterrupt:
