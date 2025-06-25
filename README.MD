@@ -1,6 +1,6 @@
 # Roblox-Child-Controller 
 ### NOTE: ONLY FOR Windows `10/11` PC's, not for Virtual Machines and other OS, or any Virtual Machine!
-![](docs/timer.jpg)
+[![](docs/timer.jpg)](https://youtu.be/F5yjMVPWn0U?si=ZEBsrjwOHomv0ll9)
 
 ## Overview
 
