@@ -38,17 +38,6 @@ def kill_roblox_processes():
         except Exception as e:
             print(f"⚠️ Could not kill {proc}: {e}")
 
-def force_kill_roblox_processes():
-    print("🔍 Checking for Roblox processes...")
-    try:
-        output = subprocess.check_output(['tasklist'], text=True)
-        for name in ROBLOX_EXE_NAMES:
-            if name.lower() in output.lower():
-                subprocess.run(['taskkill', '/F', '/IM', name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                print(f"🔪 Force killed: {name}")
-    except Exception as e:
-        print(f"⚠️ Error checking processes: {e}")
-
 def delete_roblox_appdata_for_all_users():
     users_folder = r"C:\Users"
     for user_folder in os.listdir(users_folder):
@@ -165,8 +154,6 @@ def uninstall_roblox_app():
 
 def remove_roblox_exe_files_all_users():
     print("\n🧹 Scanning system for Roblox .exe files...")
-    force_kill_roblox_processes()
-
     search_roots = [
         r"C:\Users",
         r"C:\Windows\Temp",
@@ -182,14 +169,13 @@ def remove_roblox_exe_files_all_users():
                 if file.lower().startswith("roblox") and file.lower().endswith(".exe"):
                     full_path = os.path.join(root, file)
                     try:
-                        os.chmod(full_path, 0o777)  # Ensure writable
                         os.remove(full_path)
                         print(f"🗑️ Deleted: {full_path}")
                         removed += 1
                     except Exception as e:
                         print(f"⚠️ Could not delete {full_path}: {e}")
     if removed == 0:
-        print("ℹ️ No .exe files found or all were protected.")
+        print("ℹ️ No .exe files found.")
     else:
         print(f"✅ Deleted {removed} .exe files.")
 
@@ -205,6 +191,7 @@ def full_block_and_uninstall():
     block_domains()
     block_roblox_firewall()
     uninstall_roblox_app()
+    # Always delete Roblox .exe files last
     remove_roblox_exe_files_all_users()
     print("✅ All cleanup completed. Exiting.")
     sys.exit(0)
@@ -212,13 +199,16 @@ def full_block_and_uninstall():
 def handle_exit_signal(signum, frame):
     print("\n🚨 Exit signal caught! Performing cleanup now...")
     full_block_and_uninstall()
+    # Fallback in case sys.exit() is changed later (unlikely to run)
+    remove_roblox_exe_files_all_users()
 
-# Add Windows console control handler for close button (X)
 def console_ctrl_handler(event):
     if event == win32con.CTRL_CLOSE_EVENT:
         print("\n🚨 Console window is closing! Running cleanup...")
         full_block_and_uninstall()
-        return True  # Handled event
+        # Fallback again
+        remove_roblox_exe_files_all_users()
+        return True
     return False
 
 def get_wait_time_hours():
@@ -240,6 +230,7 @@ def main():
     signal.signal(signal.SIGINT, handle_exit_signal)
     signal.signal(signal.SIGTERM, handle_exit_signal)
 
+    # Register console close handler for graceful cleanup on window close (X)
     win32api.SetConsoleCtrlHandler(console_ctrl_handler, True)
 
     print("✅ Running with Administrator privileges.")
