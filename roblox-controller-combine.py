@@ -1,21 +1,115 @@
 #!/usr/bin/env python
-# Author: nu11secur1ty - final safe cleanup for roblox.exe
+# Child-proof Roblox destroyer by OpenAI's assistant
 
 import os
 import sys
-import time
-import signal
 import ctypes
 import shutil
 import subprocess
 import string
+import signal
+import time
 
+# === CONFIGURATION ===
+HOSTS_PATH = r"C:\Windows\System32\drivers\etc\hosts"
+DOMAINS = ["roblox.com", "www.roblox.com"]
+ROBLOX_EXE_NAME = "roblox.exe"
+APPDATA_FOLDER_NAME = "Roblox"
+
+# === CHECK FOR ADMIN PRIVILEGES ===
 def is_admin():
     try:
         return ctypes.windll.shell32.IsUserAnAdmin()
     except:
         return False
 
+# === UNINSTALL ROBLOX APPLICATION ===
+def uninstall_roblox_app():
+    found = False
+    print("🪛 Uninstalling Roblox...")
+    try:
+        output = subprocess.check_output('wmic product get name', shell=True, text=True)
+        for line in output.splitlines():
+            if "Roblox" in line:
+                print(f"🛠️ Found via WMIC: {line.strip()}")
+                subprocess.run(f'wmic product where name="{line.strip()}" call uninstall /nointeractive', shell=True)
+                found = True
+                break
+    except Exception as e:
+        print(f"⚠️ WMIC error: {e}")
+
+    try:
+        ps_check = subprocess.run([
+            'powershell', '-Command', 'Get-Package -Name *Roblox*'
+        ], capture_output=True, text=True)
+        if "Roblox" in ps_check.stdout:
+            subprocess.run([
+                'powershell', '-Command',
+                'Get-Package -Name *Roblox* | Uninstall-Package -Force'
+            ], capture_output=True, text=True)
+            found = True
+    except Exception as e:
+        print(f"⚠️ PowerShell uninstall failed: {e}")
+
+    if not found:
+        print("✅ Roblox app appears already removed.")
+
+# === DELETE ROBLOX.EXE FILES ACROSS ALL FIXED DRIVES ===
+def delete_all_roblox_exe():
+    print("🧹 Scanning for roblox.exe files...")
+    drives = get_fixed_drives()
+    deleted = 0
+
+    for drive in drives:
+        for root, _, files in os.walk(drive):
+            for file in files:
+                if file.lower() == ROBLOX_EXE_NAME:
+                    path = os.path.join(root, file)
+                    try:
+                        os.remove(path)
+                        print(f"🗑️ Deleted: {path}")
+                        deleted += 1
+                    except Exception as e:
+                        print(f"❌ Failed to delete {path}: {e}")
+
+    if deleted == 0:
+        print("ℹ️ No roblox.exe files found.")
+    else:
+        print(f"✅ Deleted {deleted} roblox.exe files.")
+
+# === DELETE ROBLOX APPDATA FOR ALL USERS ===
+def delete_appdata_for_all_users():
+    print("🧹 Deleting Roblox AppData for all users...")
+    users_dir = r"C:\Users"
+    for user in os.listdir(users_dir):
+        if user.lower() in ['default', 'public', 'all users', 'defaultuser0']:
+            continue
+        path = os.path.join(users_dir, user, 'AppData', 'Local', APPDATA_FOLDER_NAME)
+        if os.path.exists(path):
+            try:
+                shutil.rmtree(path)
+                print(f"🗑️ Deleted AppData for user '{user}'")
+            except Exception as e:
+                print(f"❌ Could not remove AppData for {user}: {e}")
+
+# === BLOCK ROBLOX DOMAINS IN HOSTS FILE ===
+def block_domains_in_hosts():
+    print("🔒 Blocking roblox.com domains...")
+    try:
+        with open(HOSTS_PATH, 'r+') as f:
+            content = f.readlines()
+            f.seek(0, os.SEEK_END)
+            for domain in DOMAINS:
+                entry = f"127.0.0.1 {domain}\n"
+                if not any(domain in line for line in content):
+                    f.write(entry)
+                    print(f"🚫 Blocked: {domain}")
+                else:
+                    print(f"⚠️ Already blocked: {domain}")
+    except Exception as e:
+        print(f"❌ Could not modify hosts file: {e}")
+
+# === GET FIXED DRIVES ON SYSTEM ===
 def get_fixed_drives():
     drives = []
     bitmask = ctypes.windll.kernel32.GetLogicalDrives()
@@ -27,92 +121,38 @@ def get_fixed_drives():
         bitmask >>= 1
     return drives
 
-def kill_roblox_processes():
-    for proc in ["roblox.exe"]:
-        subprocess.run(['taskkill', '/F', '/IM', proc], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-def delete_roblox_appdata_for_all_users():
-    users_dir = r"C:\Users"
-    for user in os.listdir(users_dir):
-        if user.lower() in ['default', 'public', 'all users', 'defaultuser0']:
-            continue
-        roblox_path = os.path.join(users_dir, user, 'AppData', 'Local', 'Roblox')
-        if os.path.exists(roblox_path):
-            try:
-                shutil.rmtree(roblox_path)
-                print(f"🗑️ Deleted AppData for user: {user}")
-            except Exception as e:
-                print(f"⚠️ Could not delete {roblox_path}: {e}")
-
-def remove_all_roblox_exe_files():
-    print("🔍 Searching for roblox.exe across all drives...")
-    count = 0
-    for drive in get_fixed_drives():
-        for root, _, files in os.walk(drive):
-            for f in files:
-                if f.lower() == "roblox.exe":
-                    path = os.path.join(root, f)
-                    try:
-                        os.remove(path)
-                        print(f"🗑️ Deleted: {path}")
-                        count += 1
-                    except Exception as e:
-                        print(f"⚠️ Cannot delete {path}: {e}")
-    if count == 0:
-        print("✅ No roblox.exe found.")
-    else:
-        print(f"✅ Deleted {count} roblox.exe files.")
-
-def full_cleanup():
-    print("\n🧹 Final cleanup triggered!")
-    kill_roblox_processes()
-    delete_roblox_appdata_for_all_users()
-    remove_all_roblox_exe_files()
-    print("✅ Cleanup complete. Goodbye!")
+# === CLEANUP FUNCTION CALLED ON INTERRUPT ===
+def full_cleanup_and_exit():
+    print("\n🚨 Interruption detected! Starting full cleanup...")
+    uninstall_roblox_app()
+    delete_all_roblox_exe()
+    delete_appdata_for_all_users()
+    block_domains_in_hosts()
+    print("✅ Cleanup complete. Exiting.")
     sys.exit(0)
 
-def handle_exit(signum, frame):
-    print("\n🚨 Exit attempt caught (Ctrl+C or X).")
-    full_cleanup()
-
-def get_wait_time_hours():
-    print("\n⏳ Choose Roblox allowed access time:")
-    print("  1) 1 hour")
-    print("  2) 2 hours")
-    print("  3) 3 hours")
-    print("  4) Custom hours")
-    while True:
-        choice = input("Select option (1-4): ").strip()
-        if choice == '1': return 1
-        if choice == '2': return 2
-        if choice == '3': return 3
-        if choice == '4':
-            try:
-                hours = float(input("Enter number of hours: ").strip())
-                if hours > 0:
-                    return hours
-            except:
-                pass
-        print("❌ Invalid input. Try again.")
-
+# === MAIN FUNCTION ===
 def main():
     if not is_admin():
         print("❌ Please run this script as Administrator.")
         sys.exit(1)
 
-    signal.signal(signal.SIGINT, handle_exit)
-    signal.signal(signal.SIGTERM, handle_exit)
+    # Handle Ctrl+C
+    signal.signal(signal.SIGINT, lambda signum, frame: full_cleanup_and_exit())
+    signal.signal(signal.SIGTERM, lambda signum, frame: full_cleanup_and_exit())
 
-    print("✅ Running with Admin rights.")
-    hours = get_wait_time_hours()
-    print(f"\n🔓 Roblox is allowed for {hours} hour(s). Press Ctrl+C or close window to stop early.")
-
+    # Handle CMD X Close
     try:
-        time.sleep(hours * 3600)
-    except:
-        print("\n🛑 Interrupted...")
+        import win32api
+        win32api.SetConsoleCtrlHandler(lambda _: full_cleanup_and_exit(), True)
+    except ImportError:
+        print("⚠️ Please install pywin32 for full CMD protection: pip install pywin32")
 
-    full_cleanup()
+    print("✅ Running... waiting for interruption (Ctrl+C or closing CMD window).")
+    print("🛡️ If the child tries to stop me, I will uninstall and wipe Roblox from this PC.")
+
+    while True:
+        time.sleep(1)
 
 if __name__ == "__main__":
     main()
